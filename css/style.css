@@ -1,0 +1,344 @@
+/*wireframe styling*/
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: white;
+    color: black;
+}
+
+
+
+.navbar {
+    height: 70px;
+    border-bottom: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 30px;
+
+    position: sticky;
+    top: 0;
+
+    background: white;
+    z-index: 10;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+nav {
+    display: flex;
+    gap: 30px;
+}
+
+nav a {
+    color: black;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+.add-button {
+    width: 40px;
+    height: 40px;
+
+    background: white;
+    border: 2px solid black;
+
+    font-size: 24px;
+}
+
+
+/* GENERAL PAGE */
+
+.page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 50px 30px;
+}
+
+.page:not(#home) {
+    border-top: 2px solid black;
+    margin-top: 50px;
+}
+
+h1 {
+    font-size: 36px;
+    margin-bottom: 35px;
+}
+
+h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+}
+
+
+
+.hero-placeholder {
+    width: 100%;
+    height: 400px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 60px;
+}
+
+
+.section {
+    margin-bottom: 70px;
+}
+
+
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 20px;
+}
+
+.media-card {
+    text-align: left;
+}
+
+.cover-placeholder {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+
+    border: 2px solid black;
+
+    margin-bottom: 10px;
+}
+
+.media-card p {
+    font-size: 14px;
+}
+
+
+
+.current-placeholder {
+    height: 180px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    background: white;
+    border: 2px solid black;
+    padding: 10px 18px;
+
+    cursor: pointer;
+}
+
+button:hover {
+    background: black;
+    color: white;
+}
+
+
+
+.search-placeholder {
+    height: 50px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+
+    padding-left: 15px;
+
+    margin-bottom: 50px;
+}
+
+
+
+.folder-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.folder-placeholder {
+    height: 120px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+.collection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    margin-bottom: 20px;
+}
+
+
+
+.media-details {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 60px;
+
+    margin-bottom: 60px;
+}
+
+.large-cover-placeholder {
+    width: 350px;
+    height: 350px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-info {
+    border: 2px solid black;
+    padding: 30px;
+
+    min-height: 350px;
+}
+
+.media-info h1 {
+    margin-bottom: 30px;
+}
+
+.media-info p {
+    margin-bottom: 20px;
+}
+
+
+
+.photo-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.photo-placeholder {
+    width: 70px;
+    height: 70px;
+
+    border: 2px solid black;
+}
+
+
+/* REVIEW / NOTES */
+
+.rating-placeholder {
+    border: 2px solid black;
+
+    display: inline-block;
+
+    padding: 10px 15px;
+
+    margin-bottom: 20px;
+}
+
+.text-placeholder {
+    min-height: 150px;
+
+    border: 2px solid black;
+
+    padding: 20px;
+
+    display: flex;
+    align-items: flex-start;
+}
+
+
+
+.profile-placeholder {
+    width: 150px;
+    height: 150px;
+
+    border: 2px solid black;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 20px;
+}
+
+.stats-placeholder {
+    height: 150px;
+
+    border: 2px solid black;
+
+    margin-top: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+
+.back-button {
+    margin-bottom: 30px;
+    cursor: pointer;
+}
+
+
+
+@media (max-width: 800px) {
+
+    nav {
+        gap: 10px;
+    }
+
+    .media-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .folder-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .media-details {
+        grid-template-columns: 1fr;
+    }
+
+    .large-cover-placeholder {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+    }
+
+}
