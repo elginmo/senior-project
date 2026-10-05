@@ -556,3 +556,38 @@ if (collectionPage) {
 
     updateCollection();
 }
+
+/* profile settings */
+
+const profileSettings = document.querySelector(".profile-settings");
+
+if (profileSettings) {
+    const settingsToggle = profileSettings.querySelector(".profile-settings-toggle");
+    const settingsMenu = profileSettings.querySelector(".profile-settings-menu");
+
+    const closeSettings = (returnFocus = false) => {
+        settingsToggle.setAttribute("aria-expanded", "false");
+        settingsMenu.hidden = true;
+        if (returnFocus) settingsToggle.focus();
+    };
+
+    settingsToggle.addEventListener("click", () => {
+        const expanded = settingsToggle.getAttribute("aria-expanded") === "true";
+        settingsToggle.setAttribute("aria-expanded", String(!expanded));
+        settingsMenu.hidden = expanded;
+    });
+
+    settingsMenu.addEventListener("click", (event) => {
+        if (event.target instanceof Element && event.target.closest("button")) {
+            closeSettings();
+        }
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!profileSettings.contains(event.target)) closeSettings();
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !settingsMenu.hidden) closeSettings(true);
+    });
+}

@@ -29,23 +29,124 @@
             </button>
         </header>
 
-        <main>
+        <main class="profile-page">
             <section class="page">
-                <p class="page-label">PROFILE</p>
-                <h1>PROFILE</h1>
+                <p class="page-label">PROFILE / 001</p>
 
-                <div class="profile-placeholder">
-                    PROFILE IMAGE
-                </div>
+                <header class="profile-header">
+                    <div class="profile-banner" aria-label="Profile banner placeholder">
+                        <span>banner goes here.</span>
+                    </div>
 
-                <div class="text-placeholder">
-                    <h2>USER.</h2>
-                    <p>Curating across games, music, and movies.</p>
-                </div>
+                    <div class="profile-identity">
+                        <div class="profile-avatar" aria-label="Profile picture placeholder">
+                            <span>n/a</span>
+                        </div>
+                        <div class="profile-identity-main">
+                            <div class="profile-name-row">
+                                <div>
+                                    <h1>miguel01</h1>
+                                    <p class="profile-username">@miguel01</p>
+                                </div>
+                                <div class="profile-settings">
+                                    <button class="profile-settings-toggle" type="button" aria-label="Profile settings" aria-expanded="false" aria-controls="profile-settings-menu">
+                                        <span aria-hidden="true">⚙</span>
+                                    </button>
+                                    <div class="profile-settings-menu" id="profile-settings-menu" hidden>
+                                        <p class="profile-settings-label">PROFILE SETTINGS</p>
+                                        <button type="button">EDIT PROFILE</button>
+                                        <button type="button">CHANGE PROFILE PICTURE</button>
+                                        <button type="button">CHANGE BANNER</button>
+                                        <button type="button">EDIT BIO</button>
+                                        <button type="button">PRIVACY</button>
+                                        <button type="button">APPEARANCE</button>
+                                        <button type="button">ACCOUNT</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="profile-bio">i like collecting stuff.</p>
+                        </div>
+                    </div>
+                </header>
 
-                <div class="stats-placeholder">
-                    COLLECTION STATS
-                </div>
+                <section class="collection-stats profile-stats" aria-label="Profile statistics">
+                    <div class="stat">
+                        <span class="stat-number">25</span>
+                        <span class="stat-label">COLLECTION</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">08</span>
+                        <span class="stat-label">WISHLIST</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">06</span>
+                        <span class="stat-label">FOLDERS</span>
+                    </div>
+                </section>
+
+                <section class="profile-section badges-section" aria-labelledby="badges-heading">
+                    <div class="profile-section-heading">
+                        <div>
+                            <p class="section-label">01 / MILESTONES</p>
+                            <h2 id="badges-heading">BADGES</h2>
+                        </div>
+                        <span class="profile-section-count">05 UNLOCKED</span>
+                    </div>
+                    <div class="badge-grid">
+                        <article class="profile-badge">
+                            <div class="badge-icon" aria-hidden="true"><span>01</span></div>
+                            <h3>FIRST ADD</h3>
+                            <p>YOUR ARCHIVE STARTS</p>
+                        </article>
+                        <article class="profile-badge">
+                            <div class="badge-icon badge-icon-blue" aria-hidden="true"><span>◉</span></div>
+                            <h3>VINYL COLLECTOR</h3>
+                            <p>SPIN SOMETHING GOOD</p>
+                        </article>
+                        <article class="profile-badge">
+                            <div class="badge-icon" aria-hidden="true"><span>25</span></div>
+                            <h3>25 ITEMS</h3>
+                            <p>BUILDING THE STACK</p>
+                        </article>
+                        <article class="profile-badge">
+                            <div class="badge-icon badge-icon-blue" aria-hidden="true"><span>▶</span></div>
+                            <h3>MOVIE NIGHT</h3>
+                            <p>ONE MORE SCREENING</p>
+                        </article>
+                        <article class="profile-badge">
+                            <div class="badge-icon" aria-hidden="true"><span>★</span></div>
+                            <h3>HOLY GRAIL</h3>
+                            <p>THE ONE YOU HAD TO FIND</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="profile-section activity-section" aria-labelledby="activity-heading">
+                    <div class="profile-section-heading">
+                        <div>
+                            <p class="section-label">02 / THE LATEST</p>
+                            <h2 id="activity-heading">RECENT ACTIVITY</h2>
+                        </div>
+                        <span class="profile-section-count">RECENT LOG</span>
+                    </div>
+                    <div class="activity-list">
+                        <article class="activity-item">
+                            <span class="activity-index">01</span>
+                            <p>Added an item to <strong>collection</strong></p>
+                            <time datetime="2026-10-04">1 DAY AGO</time>
+                        </article>
+                        <article class="activity-item">
+                            <span class="activity-index">02</span>
+                            <p>Added an item to <strong>wishlist</strong></p>
+                            <time datetime="2026-10-02">3 DAYS AGO</time>
+                        </article>
+                        <article class="activity-item">
+                            <span class="activity-index">03</span>
+                            <p>Created a new <strong>folder</strong></p>
+                            <time datetime="2026-09-29">6 DAYS AGO</time>
+                        </article>
+                    </div>
+                </section>
             </section>
         </main>
     </div>
