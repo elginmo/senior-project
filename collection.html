@@ -20,35 +20,96 @@
 
             <nav aria-label="Main navigation">
                 <a href="index.html">HOME</a>
-                <a href="collection.html">COLLECTION</a>
+                <a href="collection.html" aria-current="page">COLLECTION</a>
                 <a href="profile.html">PROFILE</a>
             </nav>
 
-            <button class="add-button" aria-label="Add media">
-                +
-            </button>
+            <button class="add-button" aria-label="Add media" type="button">+</button>
         </header>
 
-        <main>
+        <main class="collection-page">
             <section class="page">
-                <p class="page-label">COLLECTION</p>
+                <p class="page-label">PERSONAL ARCHIVE / 001</p>
                 <h1>YOUR COLLECTION</h1>
 
-                <div class="filter-bar">
-                    <button>ALL</button>
-                    <button>GAMES</button>
-                    <button>MUSIC</button>
-                    <button>MOVIES</button>
-                    <button>WISHLIST</button>
-                </div>
+                <section class="collection-stats" aria-label="Collection statistics">
+                    <div class="stat">
+                        <span class="stat-number">25</span>
+                        <span class="stat-label">TOTAL ITEMS</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">09</span>
+                        <span class="stat-label">GAMES</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">08</span>
+                        <span class="stat-label">MUSIC</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">08</span>
+                        <span class="stat-label">MOVIES</span>
+                    </div>
+                </section>
 
-                <div class="search-placeholder">
-                    SEARCH YOUR COLLECTION
-                </div>
+                <section class="collection-tools" aria-label="Search and filter collection">
+                    <label class="collection-search">
+                        <span class="visually-hidden">Search your collection</span>
+                        <input id="collection-search" type="search" placeholder="SEARCH YOUR COLLECTION..." autocomplete="off">
+                        <span class="search-index" aria-hidden="true">⌕</span>
+                    </label>
+                    <button class="filter-toggle" type="button" aria-expanded="false" aria-controls="collection-filters">
+                        FILTERS <span aria-hidden="true">+</span>
+                    </button>
+                    <div class="filter-panel" id="collection-filters" hidden>
+                        <label>TYPE
+                            <select data-filter="type">
+                                <option value="">ALL TYPES</option>
+                                <option value="game">GAMES</option>
+                                <option value="music">MUSIC</option>
+                                <option value="movie">MOVIES</option>
+                            </select>
+                        </label>
+                        <label>FORMAT
+                            <select data-filter="format">
+                                <option value="">ALL FORMATS</option>
+                                <option value="cartridge">CARTRIDGE</option>
+                                <option value="disc">DISC</option>
+                                <option value="vinyl">VINYL</option>
+                                <option value="cd">CD</option>
+                                <option value="blu-ray">BLU-RAY</option>
+                                <option value="dvd">DVD</option>
+                            </select>
+                        </label>
+                        <label>GENRE
+                            <select data-filter="genre">
+                                <option value="">ALL GENRES</option>
+                                <option value="adventure">ADVENTURE</option>
+                                <option value="indie">INDIE</option>
+                                <option value="rpg">RPG</option>
+                                <option value="party">PARTY</option>
+                                <option value="rock">ROCK</option>
+                                <option value="electronic">ELECTRONIC</option>
+                                <option value="drama">DRAMA</option>
+                                <option value="sci-fi">SCI-FI</option>
+                                <option value="horror">HORROR</option>
+                                <option value="animation">ANIMATION</option>
+                            </select>
+                        </label>
+                        <label>STATUS
+                            <select data-filter="status">
+                                <option value="">ALL STATUS</option>
+                                <option value="owned">OWNED</option>
+                                <option value="wishlist">WISHLIST</option>
+                            </select>
+                        </label>
+                        <button class="clear-filters" type="button">CLEAR FILTERS</button>
+                    </div>
+                    <p class="results-count" aria-live="polite">25 ITEMS IN ARCHIVE</p>
+                </section>
 
-                <section class="content-section">
+                <section class="content-section collection-section folders-section">
                     <div class="section-heading">
-                        <p class="section-label">01</p>
+                        <p class="section-label">01 / ORGANIZE</p>
                         <h2>FOLDERS</h2>
                     </div>
 
@@ -56,62 +117,148 @@
                         <div class="folder-placeholder">COMFORT MEDIA</div>
                         <div class="folder-placeholder">HOLY GRAILS</div>
                         <div class="folder-placeholder">FAVORITES</div>
-                        <div class="folder-placeholder">+ NEW FOLDER</div>
+                        <div class="folder-placeholder">SOUNDTRACKS</div>
+                        <div class="folder-placeholder">HORROR</div>
+                        <div class="folder-placeholder">CHILDHOOD</div>
+                        <div class="folder-placeholder extra-folder" hidden>ON REPEAT</div>
+                        <div class="folder-placeholder extra-folder" hidden>FUTURE CLASSICS</div>
+                    </div>
+                    <div class="folder-actions">
+                        <button class="view-folders" type="button" aria-expanded="false">VIEW ALL FOLDERS <span>08</span></button>
+                        <button class="new-folder" type="button">+ NEW FOLDER</button>
                     </div>
                 </section>
 
-                <section class="content-section">
+                <section class="content-section collection-section wishlist-section">
                     <div class="collection-header">
-                        <h2>WISHLIST</h2>
-                    </div>
-
-                    <div class="media-grid">
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
-                        </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
-                        </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
-                        </article>
-                    </div>
-                </section>
-
-                <section class="content-section">
-                    <div class="collection-header">
-                        <h2>ALL MEDIA</h2>
                         <div>
-                            <button>SORT</button>
-                            <button>VIEW</button>
+                            <p class="section-label">02 / TO FIND</p>
+                            <h2>WISHLIST</h2>
+                        </div>
+                        <span class="section-count">03 ITEMS</span>
+                    </div>
+
+                    <div class="media-grid wishlist-grid">
+                        <article class="media-card" data-status="wishlist" data-type="game" data-format="cartridge" data-genre="adventure" data-release-date="2017-03-03" data-rating="9">
+                            <div class="cover-placeholder" aria-label="Placeholder cover">WISHLIST / GAME</div>
+                            <div class="media-card-info"><p>bad pieces</p><span>MUSIC<i>/</i> VINYL</span></div>
+                            <div class="media-card-details"><span>BY wave to earth</span><span>2026</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="wishlist" data-type="music" data-format="vinyl" data-genre="rock" data-release-date="1997-05-21" data-rating="10">
+                            <div class="cover-placeholder" aria-label="Placeholder cover">WISHLIST / MUSIC</div>
+                            <div class="media-card-info"><p>MARVEL TOKON: FIGHTING SOULS</p><span>GAME <i>/</i> PS5</span></div>
+                            <div class="media-card-details"><span>FIGHTING</span><span>2026</span><span>★ 10.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="wishlist" data-type="movie" data-format="blu-ray" data-genre="animation" data-release-date="2001-05-25" data-rating="9">
+                            <div class="cover-placeholder" aria-label="Placeholder cover">WISHLIST / MOVIE</div>
+                            <div class="media-card-info"><p>Spirited Away</p><span>MOVIE <i>/</i> BLU-RAY</span></div>
+                            <div class="media-card-details"><span>ANIMATION</span><span>2001</span><span>★ 9.0</span></div>
+                        </article>
+                    </div>
+                    <p class="empty-results" hidden>No wishlist items match these filters.</p>
+                </section>
+
+                <section class="content-section collection-section all-media-section">
+                    <div class="collection-header">
+                        <div>
+                            <p class="section-label">03 / ARCHIVE</p>
+                            <h2>ALL MEDIA</h2>
+                        </div>
+                        <div class="view-controls">
+                            <label>SORT
+                                <select id="collection-sort" aria-label="Sort collection">
+                                    <option value="recent">RECENTLY ADDED</option>
+                                    <option value="title-asc">TITLE A–Z</option>
+                                    <option value="title-desc">TITLE Z–A</option>
+                                    <option value="release">RELEASE DATE</option>
+                                    <option value="rating">RATING</option>
+                                </select>
+                            </label>
+                            <div class="view-switch" role="group" aria-label="Collection view">
+                                <button type="button" class="active" data-view="grid" aria-pressed="true">GRID</button>
+                                <button type="button" data-view="list" aria-pressed="false">LIST</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="media-grid">
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
+                    <div class="media-grid collection-grid">
+                        <article class="media-card" data-status="owned" data-type="game" data-format="cartridge" data-genre="adventure" data-release-date="2017-03-03" data-rating="10" data-added="2026-09-28">
+                            <div class="cover-placeholder">GAME / 001</div><div class="media-card-info"><p>The Legend of Zelda: Breath of the Wild</p><span>GAME <i>/</i> CARTRIDGE</span></div><div class="media-card-details"><span>ADVENTURE</span><span>2017</span><span>★ 10.0</span></div>
                         </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="disc" data-genre="adventure" data-release-date="2023-05-12" data-rating="9" data-added="2026-09-24">
+                            <div class="cover-placeholder">GAME / 002</div><div class="media-card-info"><p>The Legend of Zelda: Tears of the Kingdom</p><span>GAME <i>/</i> DISC</span></div><div class="media-card-details"><span>ADVENTURE</span><span>2023</span><span>★ 9.0</span></div>
                         </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="cartridge" data-genre="rpg" data-release-date="2018-10-05" data-rating="9" data-added="2026-09-20">
+                            <div class="cover-placeholder">GAME / 003</div><div class="media-card-info"><p>Super Mario Party</p><span>GAME <i>/</i> CARTRIDGE</span></div><div class="media-card-details"><span>PARTY</span><span>2018</span><span>★ 9.0</span></div>
                         </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="disc" data-genre="rpg" data-release-date="2022-02-25" data-rating="10" data-added="2026-09-16">
+                            <div class="cover-placeholder">GAME / 004</div><div class="media-card-info"><p>Elden Ring</p><span>GAME <i>/</i> DISC</span></div><div class="media-card-details"><span>RPG</span><span>2022</span><span>★ 10.0</span></div>
                         </article>
-                        <article class="media-card">
-                            <div class="cover-placeholder">COVER</div>
-                            <p>MEDIA TITLE</p>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="cartridge" data-genre="indie" data-release-date="2018-09-06" data-rating="9" data-added="2026-09-12">
+                            <div class="cover-placeholder">GAME / 005</div><div class="media-card-info"><p>Celeste</p><span>GAME <i>/</i> CARTRIDGE</span></div><div class="media-card-details"><span>INDIE</span><span>2018</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="disc" data-genre="horror" data-release-date="2024-10-08" data-rating="8" data-added="2026-09-08">
+                            <div class="cover-placeholder">GAME / 006</div><div class="media-card-info"><p>Silent Hill 2</p><span>GAME <i>/</i> DISC</span></div><div class="media-card-details"><span>HORROR</span><span>2024</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="cartridge" data-genre="rpg" data-release-date="2018-07-13" data-rating="9" data-added="2026-09-04">
+                            <div class="cover-placeholder">GAME / 007</div><div class="media-card-info"><p>Octopath Traveler</p><span>GAME <i>/</i> CARTRIDGE</span></div><div class="media-card-details"><span>RPG</span><span>2018</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="disc" data-genre="indie" data-release-date="2017-10-03" data-rating="9" data-added="2026-08-30">
+                            <div class="cover-placeholder">GAME / 008</div><div class="media-card-info"><p>Cuphead</p><span>GAME <i>/</i> DISC</span></div><div class="media-card-details"><span>INDIE</span><span>2017</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="game" data-format="cartridge" data-genre="adventure" data-release-date="2017-09-15" data-rating="8" data-added="2026-08-26">
+                            <div class="cover-placeholder">GAME / 009</div><div class="media-card-info"><p>Metroid: Samus Returns</p><span>GAME <i>/</i> CARTRIDGE</span></div><div class="media-card-details"><span>ADVENTURE</span><span>2017</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="vinyl" data-genre="rock" data-release-date="1997-05-21" data-rating="10" data-added="2026-08-22">
+                            <div class="cover-placeholder">MUSIC / 001</div><div class="media-card-info"><p>OK Computer</p><span>MUSIC <i>/</i> VINYL</span></div><div class="media-card-details"><span>ROCK</span><span>1997</span><span>★ 10.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="cd" data-genre="electronic" data-release-date="2001-03-12" data-rating="9" data-added="2026-08-18">
+                            <div class="cover-placeholder">MUSIC / 002</div><div class="media-card-info"><p>Discovery</p><span>MUSIC <i>/</i> CD</span></div><div class="media-card-details"><span>ELECTRONIC</span><span>2001</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="vinyl" data-genre="indie" data-release-date="2022-06-17" data-rating="9" data-added="2026-08-14">
+                            <div class="cover-placeholder">MUSIC / 003</div><div class="media-card-info"><p>Gemini Rights</p><span>MUSIC <i>/</i> VINYL</span></div><div class="media-card-details"><span>INDIE</span><span>2022</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="cd" data-genre="rock" data-release-date="2000-10-02" data-rating="8" data-added="2026-08-10">
+                            <div class="cover-placeholder">MUSIC / 004</div><div class="media-card-info"><p>Kid A</p><span>MUSIC <i>/</i> CD</span></div><div class="media-card-details"><span>ROCK</span><span>2000</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="vinyl" data-genre="electronic" data-release-date="2013-05-17" data-rating="9" data-added="2026-08-06">
+                            <div class="cover-placeholder">MUSIC / 005</div><div class="media-card-info"><p>Random Access Memories</p><span>MUSIC <i>/</i> VINYL</span></div><div class="media-card-details"><span>ELECTRONIC</span><span>2013</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="cd" data-genre="indie" data-release-date="2023-09-15" data-rating="9" data-added="2026-08-02">
+                            <div class="cover-placeholder">MUSIC / 006</div><div class="media-card-info"><p>The Land Is Inhospitable and So Are We</p><span>MUSIC <i>/</i> CD</span></div><div class="media-card-details"><span>INDIE</span><span>2023</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="vinyl" data-genre="rock" data-release-date="2003-06-09" data-rating="10" data-added="2026-07-29">
+                            <div class="cover-placeholder">MUSIC / 007</div><div class="media-card-info"><p>Hail to the Thief</p><span>MUSIC <i>/</i> VINYL</span></div><div class="media-card-details"><span>ROCK</span><span>2003</span><span>★ 10.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="music" data-format="cd" data-genre="electronic" data-release-date="1999-03-01" data-rating="8" data-added="2026-07-25">
+                            <div class="cover-placeholder">MUSIC / 008</div><div class="media-card-info"><p>Play</p><span>MUSIC <i>/</i> CD</span></div><div class="media-card-details"><span>ELECTRONIC</span><span>1999</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="blu-ray" data-genre="drama" data-release-date="1994-09-23" data-rating="10" data-added="2026-07-21">
+                            <div class="cover-placeholder">MOVIE / 001</div><div class="media-card-info"><p>The Shawshank Redemption</p><span>MOVIE <i>/</i> BLU-RAY</span></div><div class="media-card-details"><span>DRAMA</span><span>1994</span><span>★ 10.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="dvd" data-genre="sci-fi" data-release-date="1999-03-31" data-rating="9" data-added="2026-07-17">
+                            <div class="cover-placeholder">MOVIE / 002</div><div class="media-card-info"><p>The Matrix</p><span>MOVIE <i>/</i> DVD</span></div><div class="media-card-details"><span>SCI-FI</span><span>1999</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="blu-ray" data-genre="animation" data-release-date="2001-07-20" data-rating="10" data-added="2026-07-13">
+                            <div class="cover-placeholder">MOVIE / 003</div><div class="media-card-info"><p>Spirited Away</p><span>MOVIE <i>/</i> BLU-RAY</span></div><div class="media-card-details"><span>ANIMATION</span><span>2001</span><span>★ 10.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="blu-ray" data-genre="drama" data-release-date="2007-12-05" data-rating="9" data-added="2026-07-09">
+                            <div class="cover-placeholder">MOVIE / 004</div><div class="media-card-info"><p>There Will Be Blood</p><span>MOVIE <i>/</i> BLU-RAY</span></div><div class="media-card-details"><span>DRAMA</span><span>2007</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="dvd" data-genre="adventure" data-release-date="2001-12-19" data-rating="8" data-added="2026-07-05">
+                            <div class="cover-placeholder">MOVIE / 005</div><div class="media-card-info"><p>The Lord of the Rings: The Fellowship of the Ring</p><span>MOVIE <i>/</i> DVD</span></div><div class="media-card-details"><span>ADVENTURE</span><span>2001</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="blu-ray" data-genre="horror" data-release-date="1978-10-27" data-rating="8" data-added="2026-07-01">
+                            <div class="cover-placeholder">MOVIE / 006</div><div class="media-card-info"><p>Halloween</p><span>MOVIE <i>/</i> BLU-RAY</span></div><div class="media-card-details"><span>HORROR</span><span>1978</span><span>★ 8.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="dvd" data-genre="drama" data-release-date="2004-09-10" data-rating="9" data-added="2026-06-27">
+                            <div class="cover-placeholder">MOVIE / 007</div><div class="media-card-info"><p>Eternal Sunshine of the Spotless Mind</p><span>MOVIE <i>/</i> DVD</span></div><div class="media-card-details"><span>DRAMA</span><span>2004</span><span>★ 9.0</span></div>
+                        </article>
+                        <article class="media-card" data-status="owned" data-type="movie" data-format="blu-ray" data-genre="animation" data-release-date="1988-04-16" data-rating="10" data-added="2026-06-23">
+                            <div class="cover-placeholder">MOVIE / 008</div><div class="media-card-info"><p>My Neighbor Totoro</p><span>MOVIE <i>/</i> BLU-RAY</span></div><div class="media-card-details"><span>ANIMATION</span><span>1988</span><span>★ 10.0</span></div>
                         </article>
                     </div>
+                    <p class="empty-results" hidden>No collection items match these filters.</p>
                 </section>
             </section>
         </main>
