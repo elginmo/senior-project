@@ -8,31 +8,39 @@
 
     <link rel="icon" type="image/png" href="media/logo-clear.png">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/landing.css">
     <link rel="stylesheet" href="https://use.typekit.net/olt6stx.css">
+    <script>
+        try {
+            document.documentElement.classList.toggle(
+                "rec-has-visited",
+                localStorage.getItem("recHasVisited") === "true"
+            );
+        } catch (error) {
+            console.error("Could not check the rec. visit preference:", error);
+        }
+    </script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+            }
+        }
+    </script>
+    <script type="module" src="js/landing.js"></script>
 </head>
 
 <body>
 
-    <!-- Enter Screen -->
-
-    <section class="enter-screen" id="enter-screen">
-        <div class="enter-animation">
-            <div class="animation-placeholder">
-                animation placeholder.
-            </div>
-        </div>
-
-        <div class="enter-content">
-            <img src="media/logo-clear.png" alt="rec." class="enter-logo">
-
-            <button class="enter-button" id="enter-button">
-                ENTER
-            </button>
+    <section class="landing-screen" id="landing-screen" aria-label="rec. intro">
+        <div class="landing-scene" id="landing-scene" aria-hidden="true"></div>
+        <div class="landing-grain" aria-hidden="true"></div>
+        <div class="landing-content">
+            <img class="landing-logo" src="media/logo-clear.png" alt="rec.">
+            <button class="enter-button" id="enter-button" type="button" disabled>ENTER</button>
+            <p class="landing-status" id="landing-status" role="status" aria-live="polite"></p>
         </div>
     </section>
-
-
-    <!-- Website -->
 
     <div class="site" id="site">
 
@@ -40,7 +48,7 @@
 
         <header class="navbar">
 
-            <a href="index.html" class="nav-logo">
+            <a href="index.html" class="nav-logo replay-intro" aria-label="Replay intro animation" title="Replay intro animation">
                 <img src="media/logo-black.png" alt="rec.">
             </a>
 

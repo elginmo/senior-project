@@ -422,27 +422,11 @@ function renderSearchResults(results) {
 
 /* navigation */
 
-const enterButton = document.getElementById("enter-button");
-const enterScreen = document.getElementById("enter-screen");
 const site = document.getElementById("site");
 
-
-if (site && !enterScreen) {
+if (site) {
     site.style.display = "block";
 }
-
-
-if (enterButton && enterScreen && site) {
-
-    enterButton.addEventListener("click", () => {
-
-        enterScreen.style.display = "none";
-        site.style.display = "block";
-
-    });
-
-}
-
 
 /* collection controls */
 
