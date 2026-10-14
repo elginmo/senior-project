@@ -127,297 +127,312 @@ async function searchMusic(query) {
 }
 
 
-/* popular picks */
+/* media of the day */
 
-async function loadPopularPicks() {
+const featuredCategoryButtons = Array.from(document.querySelectorAll("[data-category]"));
+const featuredCard = document.getElementById("featured-media-card");
 
-    const [
-        badPieces,
-        kingdomHearts,
-        theBatman,
-        theFallOff,
-        bombRush,
-        perfectBlue,
-        dawnFM,
-        marioStrikers,
-        blairWitch
-    ] = await Promise.all([
+if (featuredCard && featuredCategoryButtons.length) {
+    const featuredArt = document.getElementById("featured-media-art");
+    const featuredArtLabel = document.getElementById("featured-media-art-label");
+    const featuredCategory = document.getElementById("featured-media-category");
+    const featuredTitle = document.getElementById("featured-media-title");
+    const featuredDescription = document.getElementById("featured-media-description");
+    const preferenceKey = "rec:preferences:v1";
+    const dailyCachePrefix = "rec:media-of-day:v1:";
+    const categories = new Set(["games", "music", "films"]);
+    const dailyRequests = new Map();
+    const currentDate = new Date();
+    const dateKey = [
+        currentDate.getFullYear(),
+        String(currentDate.getMonth() + 1).padStart(2, "0"),
+        String(currentDate.getDate()).padStart(2, "0")
+    ].join("-");
 
-        searchMusic('artist:"wave to earth" AND releasegroup:"bad pieces"'),
+    const readStorage = (key) => {
+        try {
+            return window.localStorage.getItem(key);
+        } catch (error) {
+            console.error("Could not read the media-of-the-day preference:", error);
+            return null;
+        }
+    };
 
-        searchGames("Kingdom Hearts II"),
+    const writeStorage = (key, value) => {
+        try {
+            window.localStorage.setItem(key, value);
+        } catch (error) {
+            console.error("Could not save the media-of-the-day preference:", error);
+        }
+    };
 
-        searchMovies("The Batman"),
+    const readPreference = () => {
+        const stored = readStorage(preferenceKey);
+        if (!stored) return "games";
 
-        searchMusic('artist:"J. Cole" AND releasegroup:"The Fall Off"'),
+        try {
+            const preference = JSON.parse(stored);
+            return categories.has(preference.mediaOfDayCategory)
+                ? preference.mediaOfDayCategory
+                : "games";
+        } catch (error) {
+            console.error("Could not parse the media-of-the-day preference:", error);
+            return "games";
+        }
+    };
 
-        searchGames("Bomb Rush Cyberfunk"),
-
-        searchMovies("Perfect Blue"),
-
-        searchMusic('artist:"The Weeknd" AND releasegroup:"Dawn FM"'),
-
-        searchGames("Dragon Ball FighterZ"),
-
-        searchMovies("The Blair Witch Project")
-
-    ]);
-
-    const popular = [
-
-        badPieces[0],
-        kingdomHearts[0],
-        theBatman[0],
-
-        theFallOff[0],
-        bombRush[0],
-        perfectBlue[0],
-
-        dawnFM[0],
-        marioStrikers[0],
-        blairWitch[0]
-
-    ].filter(Boolean);
-
-    renderPopularPicks(popular);
-}
-
-
-function renderPopularPicks(results) {
-
-    const popularGrid = document.querySelector(".popular-grid");
-
-    if (!popularGrid) {
-        return;
-    }
-
-    popularGrid.innerHTML = "";
-
-    results.forEach((media) => {
-
-        const card = document.createElement("article");
-        card.className = "media-card";
-
-        const cover = document.createElement("div");
-        cover.className = "cover-placeholder";
-
-        if (media.cover) {
-
-            const img = document.createElement("img");
-
-            img.src = media.cover;
-            img.alt = media.title;
-
-            img.onerror = () => {
-                cover.textContent = "NO COVER";
-            };
-
-            cover.appendChild(img);
-
-        } else {
-
-            cover.textContent = "NO COVER";
-
+    const savePreference = (category) => {
+        const stored = readStorage(preferenceKey);
+        let preferences = {};
+        if (stored) {
+            try {
+                preferences = JSON.parse(stored);
+            } catch (error) {
+                console.error("Could not parse saved preferences before updating:", error);
+            }
         }
 
-        const title = document.createElement("p");
-        title.textContent = media.title;
+        writeStorage(preferenceKey, JSON.stringify({
+            ...preferences,
+            mediaOfDayCategory: category
+        }));
+    };
 
-        const info = document.createElement("div");
-        info.className = "media-card-info";
+    const dailySeed = (category) => {
+        let hash = 2166136261;
+        for (const character of `${dateKey}:${category}`) {
+            hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+        }
+        return hash >>> 0;
+    };
 
-        const type = document.createElement("span");
-        type.textContent = media.type.toUpperCase();
+    const requestJson = async (url, label, options = {}) => {
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error(`${label} request failed with status ${response.status}`);
+        return response.json();
+    };
 
-        card.appendChild(cover);
-        info.appendChild(title);
-        info.appendChild(type);
-        card.appendChild(info);
-
-        popularGrid.appendChild(card);
-
+    const mapReleaseGroup = (album) => ({
+        id: album.id,
+        title: album.title,
+        type: "music",
+        cover: `${API.coverArt}/release-group/${album.id}/front-500`,
+        releaseDate: album["first-release-date"] || null,
+        creator: album["artist-credit"]?.[0]?.name || null,
+        rating: null,
+        source: "musicbrainz"
     });
-}
 
+    const fetchDailyCandidates = async (category) => {
+        const seed = dailySeed(category);
+        if (category === "games") {
+            const data = await requestJson(
+                `${API.rawg}/games?key=${RAWG_API_KEY}&page_size=40&page=1`,
+                "RAWG"
+            );
+            return (data.results || []).map((game) => ({
+                id: game.id,
+                title: game.name,
+                type: "game",
+                cover: game.background_image || null,
+                releaseDate: game.released || null,
+                rating: game.rating ?? null,
+                creator: null,
+                source: "rawg"
+            }));
+        }
+        if (category === "music") {
+            const data = await requestJson(
+                `${API.musicbrainz}/release-group?query=${encodeURIComponent("primarytype:album")}&fmt=json&limit=100`,
+                "MusicBrainz",
+                { headers: { Accept: "application/json" } }
+            );
+            return (data["release-groups"] || []).map(mapReleaseGroup);
+        }
 
-loadPopularPicks();
+        const page = (seed % 20) + 1;
+        const data = await requestJson(
+            `${API.tmdb}/discover/movie?api_key=${TMDB_API_KEY}&sort_by=popularity.desc&page=${page}`,
+            "TMDB"
+        );
+        return (data.results || []).map((movie) => ({
+            id: movie.id,
+            title: movie.title,
+            type: "movie",
+            cover: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+            releaseDate: movie.release_date || null,
+            rating: movie.vote_average ?? null,
+            creator: null,
+            source: "tmdb"
+        }));
+    };
 
-/* popular picks controls */
-
-const popularGrid = document.querySelector(".popular-grid");
-const popularPrev = document.getElementById("popular-prev");
-const popularNext = document.getElementById("popular-next");
-
-if (popularGrid && popularPrev && popularNext) {
-
-    const scrollPopularPicks = (direction) => {
-        const card = popularGrid.querySelector(".media-card");
-        const gap = parseFloat(getComputedStyle(popularGrid).columnGap) || 0;
-        const distance = (card?.getBoundingClientRect().width || 190) + gap;
-
-        popularGrid.scrollBy({
-            left: direction * distance,
-            behavior: "smooth"
+    const updateCategoryButtons = (selectedCategory) => {
+        featuredCategoryButtons.forEach((button) => {
+            const selected = button.dataset.category === selectedCategory;
+            button.classList.toggle("active", selected);
+            button.setAttribute("aria-pressed", String(selected));
         });
     };
 
-    popularNext.addEventListener("click", () => scrollPopularPicks(1));
-    popularPrev.addEventListener("click", () => scrollPopularPicks(-1));
-}
-
-
-/* search */
-
-const searchInput = document.getElementById("media-search");
-const searchButton = document.getElementById("search-button");
-const searchFilters = document.querySelectorAll(".search-filter");
-
-let activeSearchType = "all";
-
-
-if (searchFilters.length) {
-
-    searchFilters.forEach((filter) => {
-
-        filter.addEventListener("click", () => {
-
-            searchFilters.forEach((button) => {
-                button.classList.remove("active");
-            });
-
-            filter.classList.add("active");
-
-            activeSearchType = filter.textContent.trim().toLowerCase();
-
-        });
-
+    const isCategorySelected = (category) => featuredCategoryButtons.some((button) => {
+        return button.dataset.category === category && button.getAttribute("aria-pressed") === "true";
     });
 
-}
+    const setFeaturedStatus = (category, title, description) => {
+        featuredCard.setAttribute("aria-disabled", "true");
+        featuredCard.setAttribute("aria-label", title);
+        featuredCard.dataset.mediaId = "";
+        featuredCard.dataset.mediaSource = "";
+        featuredCard.dataset.mediaType = "";
+        featuredTitle.textContent = title;
+        featuredDescription.textContent = description;
+        featuredCategory.textContent = category.toUpperCase();
+        featuredArt.replaceChildren();
+        featuredArtLabel.textContent = `${category.toUpperCase()} / FEATURED`;
+        featuredArt.append(featuredArtLabel);
+        featuredArt.classList.remove("game-art", "music-art", "film-art");
+        featuredArt.classList.add(category === "games" ? "game-art" : category === "music" ? "music-art" : "film-art");
+    };
 
+    const formatFeaturedMetadata = (category, media) => {
+        const metadata = [];
+        if (media.creator) metadata.push(media.creator);
+        if (media.releaseDate) metadata.push(media.releaseDate.slice(0, 4));
+        if (Number.isFinite(media.rating) && media.rating > 0) {
+            const scale = category === "games" ? 5 : 10;
+            metadata.push(`${category === "games" ? "RAWG" : "TMDB"} ${media.rating}/${scale}`);
+        }
+        return metadata.length ? metadata.join(" · ") : `Featured ${category}`;
+    };
 
-if (searchButton && searchInput) {
+    const renderFeaturedMedia = (category, media) => {
+        const categoryLabel = category === "games" ? "GAME" : category === "music" ? "MUSIC" : "FILM";
+        const artClass = category === "games" ? "game-art" : category === "music" ? "music-art" : "film-art";
 
-    searchButton.addEventListener("click", async () => {
+        featuredCard.setAttribute("aria-disabled", "false");
+        featuredCard.setAttribute("aria-label", `View details for ${media.title}; details page coming soon`);
+        featuredCard.dataset.mediaId = String(media.id);
+        featuredCard.dataset.mediaSource = media.source;
+        featuredCard.dataset.mediaType = media.type;
+        featuredTitle.textContent = media.title;
+        featuredCategory.textContent = `${categoryLabel} / ${media.source.toUpperCase()}`;
+        featuredDescription.textContent = formatFeaturedMetadata(category, media);
+        featuredArt.replaceChildren();
+        featuredArt.classList.remove("game-art", "music-art", "film-art");
+        featuredArt.classList.add(artClass);
 
-        const query = searchInput.value.trim();
+        if (media.cover) {
+            const cover = document.createElement("img");
+            cover.src = media.cover;
+            cover.alt = "";
+            cover.loading = "lazy";
+            cover.addEventListener("error", () => {
+                cover.remove();
+                featuredArtLabel.hidden = false;
+            }, { once: true });
+            featuredArt.append(cover);
+        }
 
-        if (!query) {
+        featuredArtLabel.textContent = `${categoryLabel} / FEATURED`;
+        featuredArtLabel.hidden = Boolean(media.cover);
+        featuredArt.append(featuredArtLabel);
+    };
+
+    const loadFeaturedMedia = async (category) => {
+        const cacheKey = `${dailyCachePrefix}${dateKey}:${category}`;
+        const cached = readStorage(cacheKey);
+        if (cached) {
+            try {
+                const media = JSON.parse(cached);
+                if (media && media.id != null && media.title && media.source) {
+                    renderFeaturedMedia(category, media);
+                    return;
+                }
+            } catch (error) {
+                console.error("Could not parse the cached media-of-the-day item:", error);
+            }
+        }
+
+        if (dailyRequests.has(category)) {
+            featuredCard.setAttribute("aria-busy", "true");
+            try {
+                const media = await dailyRequests.get(category);
+                if (isCategorySelected(category)) {
+                    if (media) {
+                        renderFeaturedMedia(category, media);
+                    } else {
+                        setFeaturedStatus(category, "No items found", `The ${category} catalog did not return a featured item today.`);
+                    }
+                }
+            } catch (error) {
+                console.error(`Could not load the ${category} media-of-the-day item:`, error);
+                if (isCategorySelected(category)) {
+                    setFeaturedStatus(category, "Today's pick is unavailable", "The external catalog could not be reached. Please try again later.");
+                }
+            } finally {
+                if (isCategorySelected(category)) featuredCard.removeAttribute("aria-busy");
+            }
             return;
         }
 
-        let results = [];
+        setFeaturedStatus(category, "Finding today's pick...", `Loading a ${category} pick from its external catalog.`);
+        featuredCard.setAttribute("aria-busy", "true");
 
-        if (activeSearchType === "games") {
+        const request = fetchDailyCandidates(category)
+            .then((candidates) => {
+                if (!candidates.length) return null;
+                const media = candidates[dailySeed(category) % candidates.length];
+                writeStorage(cacheKey, JSON.stringify(media));
+                return media;
+            })
+            .finally(() => {
+                dailyRequests.delete(category);
+            });
+        dailyRequests.set(category, request);
 
-            results = await searchGames(query);
-
-        } else if (activeSearchType === "music") {
-
-            results = await searchMusic(query);
-
-        } else if (activeSearchType === "movies") {
-
-            results = await searchMovies(query);
-
-        } else {
-
-            const [games, music, movies] = await Promise.all([
-                searchGames(query),
-                searchMusic(query),
-                searchMovies(query)
-            ]);
-
-            results = [
-                ...games,
-                ...music,
-                ...movies
-            ];
-
+        try {
+            const media = await request;
+            if (isCategorySelected(category)) {
+                if (media) {
+                    renderFeaturedMedia(category, media);
+                } else {
+                    setFeaturedStatus(category, "No items found", `The ${category} catalog did not return a featured item today.`);
+                }
+            }
+        } catch (error) {
+            console.error(`Could not load the ${category} media-of-the-day item:`, error);
+            if (isCategorySelected(category)) {
+                setFeaturedStatus(category, "Today's pick is unavailable", "The external catalog could not be reached. Please try again later.");
+            }
+        } finally {
+            if (isCategorySelected(category)) {
+                featuredCard.removeAttribute("aria-busy");
+            }
         }
+    };
 
-        console.log("Search results:", results);
+    let selectedCategory = readPreference();
+    updateCategoryButtons(selectedCategory);
 
-        renderSearchResults(results);
-
+    featuredCategoryButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            const category = button.dataset.category;
+            if (!categories.has(category) || category === selectedCategory) return;
+            selectedCategory = category;
+            updateCategoryButtons(category);
+            savePreference(category);
+            loadFeaturedMedia(category);
+        });
     });
 
-}
-
-
-/* render */
-
-function renderSearchResults(results) {
-
-    const mediaGrid = document.querySelector(".media-grid");
-
-    if (!mediaGrid) {
-        return;
-    }
-
-    mediaGrid.innerHTML = "";
-
-    if (results.length === 0) {
-
-        mediaGrid.innerHTML = "<p>NO RESULTS FOUND.</p>";
-
-        return;
-
-    }
-
-    results.forEach((media) => {
-
-        const card = document.createElement("article");
-        card.className = "media-card";
-
-        const cover = document.createElement("div");
-        cover.className = "cover-placeholder";
-
-        if (media.cover) {
-
-            const img = document.createElement("img");
-
-            img.src = media.cover;
-            img.alt = media.title;
-
-            img.style.width = "100%";
-            img.style.height = "100%";
-            img.style.objectFit = "cover";
-            img.style.display = "block";
-
-            img.onerror = () => {
-                cover.textContent = "NO COVER";
-            };
-
-            cover.appendChild(img);
-
-        } else {
-
-            cover.textContent = "NO COVER";
-
-        }
-
-        const title = document.createElement("p");
-        title.textContent = media.title;
-
-        const type = document.createElement("small");
-        type.textContent = media.type.toUpperCase();
-
-        type.style.display = "block";
-        type.style.marginTop = "6px";
-        type.style.fontSize = "10px";
-        type.style.letterSpacing = "0.08em";
-        type.style.opacity = "0.7";
-
-        card.appendChild(cover);
-        card.appendChild(title);
-        card.appendChild(type);
-
-        mediaGrid.appendChild(card);
-
+    featuredCard.addEventListener("click", (event) => {
+        event.preventDefault();
     });
 
+    loadFeaturedMedia(selectedCategory);
 }
+
 
 
 /* navigation */
@@ -558,6 +573,73 @@ if (collectionPage) {
 }
 
 /* profile settings */
+
+const badgeGrid = document.querySelector(".badge-grid");
+const homeBadgeGrid = document.querySelector(".home-badge-grid");
+
+if (typeof PROFILE_BADGES !== "undefined" && (badgeGrid || homeBadgeGrid)) {
+    const earnedBadges = PROFILE_BADGES
+        .filter((badge) => badge.unlocked)
+        .map((badge, index) => ({ ...badge, originalIndex: index }))
+        .sort((first, second) => {
+            const firstUnlockTime = Date.parse(first.unlockedAt);
+            const secondUnlockTime = Date.parse(second.unlockedAt);
+            const firstHasUnlockTime = Number.isFinite(firstUnlockTime);
+            const secondHasUnlockTime = Number.isFinite(secondUnlockTime);
+            if (firstHasUnlockTime && secondHasUnlockTime) return secondUnlockTime - firstUnlockTime;
+            if (firstHasUnlockTime) return -1;
+            if (secondHasUnlockTime) return 1;
+            return first.originalIndex - second.originalIndex;
+        });
+
+    const renderBadges = (container, badges) => {
+        const fragment = document.createDocumentFragment();
+        badges.forEach((badge) => {
+            const article = document.createElement("article");
+            article.className = "profile-badge";
+            const icon = document.createElement("div");
+            icon.className = `badge-icon${badge.iconClass ? ` ${badge.iconClass}` : ""}`;
+            icon.setAttribute("aria-hidden", "true");
+            const iconText = document.createElement("span");
+            iconText.textContent = badge.icon;
+            icon.append(iconText);
+            const heading = document.createElement("h3");
+            heading.textContent = badge.name;
+            const description = document.createElement("p");
+            description.textContent = badge.description;
+            article.append(icon, heading, description);
+
+            if (Number.isFinite(Date.parse(badge.unlockedAt))) {
+                const unlocked = document.createElement("time");
+                unlocked.className = "badge-unlocked-date";
+                unlocked.dateTime = badge.unlockedAt;
+                unlocked.textContent = new Date(badge.unlockedAt).toLocaleDateString();
+                article.append(unlocked);
+            }
+
+            fragment.append(article);
+        });
+
+        if (badges.length) {
+            container.replaceChildren(fragment);
+        } else {
+            const emptyState = document.createElement("p");
+            emptyState.className = "badge-empty-state";
+            emptyState.textContent = "NO BADGES EARNED YET.";
+            container.replaceChildren(emptyState);
+        }
+    };
+
+    if (badgeGrid) {
+        renderBadges(badgeGrid, earnedBadges);
+        const badgeCount = document.querySelector("[data-badge-count]");
+        if (badgeCount) badgeCount.textContent = `${String(earnedBadges.length).padStart(2, "0")} UNLOCKED`;
+    }
+
+    if (homeBadgeGrid) {
+        renderBadges(homeBadgeGrid, earnedBadges.slice(0, 3));
+    }
+}
 
 const profileSettings = document.querySelector(".profile-settings");
 

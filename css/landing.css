@@ -23,7 +23,6 @@ body {
         #090b10;
 }
 
-.rec-has-visited .landing-screen:not(.is-visible),
 .landing-screen.is-dismissed {
     visibility: hidden;
     opacity: 0;
@@ -66,19 +65,82 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: clamp(28px, 5vh, 46px);
+    gap: clamp(12px, 2vh, 20px);
     pointer-events: none;
 }
 
 .landing-logo {
     display: block;
-    width: clamp(145px, 20vw, 225px);
+    width: clamp(118px, 15vw, 168px);
     height: auto;
     filter: drop-shadow(0 8px 26px rgba(0, 0, 0, 0.32));
 }
 
+.landing-auth {
+    width: min(88vw, 360px);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 17px 19px;
+    border: 1px solid rgba(244, 241, 235, 0.3);
+    background: rgba(9, 11, 16, 0.78);
+    pointer-events: auto;
+}
+
+.landing-auth-label {
+    color: #b2bbc9;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+}
+
+.landing-auth h1 {
+    margin: 0 0 3px;
+    color: #f4f1eb;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+}
+
+.landing-auth label {
+    margin-top: 3px;
+    color: #d9dbe0;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+}
+
+.landing-auth input {
+    width: 100%;
+    min-height: 34px;
+    padding: 7px 9px;
+    border: 1px solid rgba(244, 241, 235, 0.28);
+    border-radius: 0;
+    background: rgba(244, 241, 235, 0.06);
+    color: #f4f1eb;
+}
+
+.landing-auth input:disabled {
+    opacity: 0.58;
+}
+
+.sign-in-button {
+    min-height: 36px;
+    margin-top: 4px;
+    border: 1px solid rgba(244, 241, 235, 0.35);
+    background: transparent;
+    color: #d9dbe0;
+    font: 700 10px/1 automate, sans-serif;
+    letter-spacing: 0.16em;
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+
+.landing-auth-note {
+    color: #c5c8cf;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
 .enter-button {
-    min-width: 130px;
+    min-width: 220px;
     min-height: 48px;
     padding: 12px 26px;
     border: 1px solid rgba(244, 241, 235, 0.9);
@@ -107,8 +169,6 @@ body {
 }
 
 .landing-status {
-    position: absolute;
-    top: calc(50% + clamp(106px, 15vw, 144px));
     width: min(90vw, 440px);
     min-height: 1.2em;
     margin: 0;
@@ -141,30 +201,9 @@ body {
     transition: opacity 420ms ease, transform 600ms ease;
 }
 
-.replay-intro {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 2px;
-    transition: opacity 160ms ease, transform 160ms ease;
-}
-
-.replay-intro:hover {
-    opacity: 0.68;
-    transform: scale(1.06);
-}
-
-.replay-intro:focus-visible {
-    outline: 2px solid #0055ff;
-    outline-offset: 5px;
-}
-
 @media (max-width: 600px) {
     .landing-logo {
-        width: clamp(145px, 42vw, 190px);
-    }
-
-    .landing-status {
-        top: calc(50% + 114px);
+        width: clamp(118px, 32vw, 150px);
     }
 }
 
