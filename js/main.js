@@ -14,117 +14,407 @@ const API = {
 /* api functions */
 
 async function searchGames(query) {
-
     const url = `${API.rawg}/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=10`;
-
-    try {
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error("RAWG request failed");
-        }
-
-        const data = await response.json();
-
-        return data.results.map((game) => ({
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`RAWG request failed (${response.status})`);
+    const data = await response.json();
+    return (data.results || []).map((game) => ({
             id: game.id,
             title: game.name,
             type: "game",
-            cover: game.background_image,
-            releaseDate: game.released,
-            creator: null,
-            publisher: null,
-            description: null,
-            rating: game.rating,
+            cover: game.background_image || null,
+            releaseDate: game.released || null,
+            creator: game.developers?.map((developer) => developer.name).join(", ") || null,
+            publisher: game.publishers?.map((publisher) => publisher.name).join(", ") || null,
+            description: game.description_raw || null,
+            genres: game.genres?.map((genre) => genre.name) || [],
+            platforms: game.platforms?.map((platform) => platform.platform.name) || [],
+            rating: game.rating ?? null,
             source: "rawg"
-        }));
-
-    } catch (error) {
-
-        console.error("Game search error:", error);
-        return [];
-
-    }
+    }));
 }
 
 
 async function searchMovies(query) {
-
     const url = `${API.tmdb}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`;
-
-    try {
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error("TMDB request failed");
-        }
-
-        const data = await response.json();
-
-        return data.results.map((movie) => ({
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`TMDB movie search failed (${response.status})`);
+    const data = await response.json();
+    return (data.results || []).map((movie) => ({
             id: movie.id,
             title: movie.title,
             type: "movie",
             cover: movie.poster_path
                 ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
                 : null,
-            releaseDate: movie.release_date,
+            releaseDate: movie.release_date || null,
             creator: null,
             publisher: null,
-            description: movie.overview,
-            rating: movie.vote_average,
+            description: movie.overview || null,
+            genres: [],
+            platforms: [],
+            rating: movie.vote_average ?? null,
             source: "tmdb"
-        }));
-
-    } catch (error) {
-
-        console.error("Movie search error:", error);
-        return [];
-
-    }
+    }));
 }
 
+async function searchTelevision(query) {
+    const url = `${API.tmdb}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`TMDB TV search failed (${response.status})`);
+    const data = await response.json();
+    return (data.results || []).map((show) => ({
+        id: show.id,
+        title: show.name,
+        type: "tv",
+        cover: show.poster_path ? `https://image.tmdb.org/t/p/w500${show.poster_path}` : null,
+        releaseDate: show.first_air_date || null,
+        creator: null,
+        publisher: null,
+        description: show.overview || null,
+        genres: [],
+        platforms: [],
+        rating: show.vote_average ?? null,
+        source: "tmdb"
+    }));
+}
 
 async function searchMusic(query) {
-
     const url = `${API.musicbrainz}/release-group?query=${encodeURIComponent(query)}&fmt=json&limit=10`;
-
-    try {
-
-        const response = await fetch(url, {
-            headers: {
-                Accept: "application/json"
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error("MusicBrainz request failed");
-        }
-
-        const data = await response.json();
-
-        return data["release-groups"].map((album) => ({
+    const response = await fetch(url, {
+        headers: { Accept: "application/json" }
+    });
+    if (!response.ok) throw new Error(`MusicBrainz request failed (${response.status})`);
+    const data = await response.json();
+    return (data["release-groups"] || []).map((album) => ({
             id: album.id,
             title: album.title,
             type: "music",
             cover: `${API.coverArt}/release-group/${album.id}/front-500`,
-            releaseDate: album["first-release-date"],
+            releaseDate: album["first-release-date"] || null,
             creator: album["artist-credit"]?.[0]?.name || null,
             publisher: null,
             description: null,
+            genres: album.genres?.map((genre) => genre.name) || [],
+            platforms: [],
             rating: null,
             source: "musicbrainz"
-        }));
+    }));
+}
 
+async function searchMedia(query, category) {
+    const requests = category === "games"
+        ? [["RAWG", searchGames(query)]]
+        : category === "music"
+            ? [["MusicBrainz", searchMusic(query)]]
+            : category === "movies-tv"
+                ? [["TMDB movies", searchMovies(query)], ["TMDB TV", searchTelevision(query)]]
+                : [
+                    ["RAWG", searchGames(query)],
+                    ["MusicBrainz", searchMusic(query)],
+                    ["TMDB movies", searchMovies(query)],
+                    ["TMDB TV", searchTelevision(query)]
+                ];
+    const settled = await Promise.allSettled(requests.map(([, request]) => request));
+    const results = [];
+    const errors = [];
+
+    settled.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+            results.push(...result.value);
+        } else {
+            console.error(`${requests[index][0]} search failed:`, result.reason);
+            errors.push(requests[index][0]);
+        }
+    });
+    return { results, errors };
+}
+
+function mediaDetailsUrl(media, query, category) {
+    const params = new URLSearchParams({
+        source: media.source,
+        type: media.type,
+        id: String(media.id)
+    });
+    if (query) {
+        params.set("q", query);
+        params.set("category", category);
+    }
+    return `media-details.html?${params}`;
+}
+
+const savedMediaKey = "rec:saved-media:v1";
+
+function readSavedMedia() {
+    try {
+        const saved = window.localStorage.getItem(savedMediaKey);
+        const items = saved ? JSON.parse(saved) : [];
+        if (!Array.isArray(items)) throw new Error("Saved media data is not a list");
+        return items;
     } catch (error) {
-
-        console.error("Music search error:", error);
+        console.error("Could not read saved media:", error);
         return [];
-
     }
 }
+
+function saveMediaMembership(media, membership) {
+    const savedItems = readSavedMedia();
+    const itemKey = `${media.source}:${media.type}:${media.id}`;
+    const existing = savedItems.find((item) => `${item.source}:${item.type}:${item.id}` === itemKey);
+    if (existing) {
+        existing[membership] = true;
+        Object.assign(existing, Object.fromEntries(
+            Object.entries(media).filter(([, value]) => value != null)
+        ));
+    } else {
+        savedItems.push({ ...media, addedAt: new Date().toISOString(), [membership]: true });
+    }
+    window.localStorage.setItem(savedMediaKey, JSON.stringify(savedItems));
+}
+
+function renderMediaSearchPage() {
+    const form = document.querySelector("#media-search-form");
+    const queryInput = form?.querySelector("[name=query]");
+    const categoryInput = form?.querySelector("[name=category]");
+    if (!form || !queryInput || !categoryInput) return;
+
+    const params = new URLSearchParams(window.location.search);
+    queryInput.value = params.get("q") || "";
+    categoryInput.value = params.get("category") || "all";
+
+    if (document.body.dataset.page === "search") return;
+
+    const resultsHeading = document.querySelector("#search-results-heading");
+    const resultsContainer = document.querySelector("#search-results");
+    const status = document.querySelector("#search-status");
+    if (!resultsHeading || !resultsContainer || !status) return;
+
+    const query = queryInput.value.trim();
+    if (!query) {
+        status.textContent = "Enter a search term to find media.";
+        return;
+    }
+    resultsHeading.textContent = `Results for “${query}”`;
+    resultsHeading.focus();
+    status.textContent = "Searching media catalogs…";
+    resultsContainer.setAttribute("aria-busy", "true");
+
+    searchMedia(query, categoryInput.value).then(({ results, errors }) => {
+        resultsContainer.replaceChildren();
+        results.forEach((media) => {
+            const link = document.createElement("a");
+            link.className = "search-result-card";
+            link.href = mediaDetailsUrl(media, query, categoryInput.value);
+            const image = document.createElement("img");
+            image.className = "search-result-artwork";
+            image.alt = "";
+            image.loading = "lazy";
+            image.src = media.cover || "";
+            image.hidden = !media.cover;
+            image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+            const info = document.createElement("span");
+            info.className = "search-result-info";
+            const title = document.createElement("strong");
+            title.textContent = media.title;
+            const type = document.createElement("span");
+            type.textContent = `${media.type.toUpperCase()} · ${media.source.toUpperCase()}${media.releaseDate ? ` · ${media.releaseDate.slice(0, 4)}` : ""}`;
+            info.append(title, type);
+            link.append(image, info);
+            resultsContainer.append(link);
+        });
+        if (errors.length && results.length) {
+            status.textContent = `${results.length} result${results.length === 1 ? "" : "s"} found. Some catalogs could not be reached: ${errors.join(", ")}.`;
+        } else if (errors.length) {
+            status.textContent = `Could not search ${errors.join(", ")}. Please try again.`;
+        } else if (results.length) {
+            status.textContent = `${results.length} result${results.length === 1 ? "" : "s"} found.`;
+        } else {
+            status.textContent = "No results found.";
+        }
+    }).catch((error) => {
+        console.error("Media search failed:", error);
+        status.textContent = "Search could not be completed. Please try again.";
+    }).finally(() => {
+        resultsContainer.removeAttribute("aria-busy");
+    });
+}
+
+function renderMediaDetailsPage() {
+    const container = document.querySelector("#media-details");
+    if (!container) return;
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get("source");
+    const type = params.get("type");
+    const id = params.get("id");
+    const status = document.querySelector("#details-status");
+    const heading = document.querySelector("#details-heading");
+    const actions = document.querySelector("#media-actions");
+    const backLink = document.querySelector("#details-back-link");
+    if (backLink && params.has("q")) {
+        backLink.href = `search-results.html?${new URLSearchParams({
+            q: params.get("q"),
+            category: params.get("category") || "all"
+        })}`;
+        backLink.textContent = "← Back to results";
+    }
+    if (!source || !type || !id || !status || !heading || !actions) {
+        status.textContent = "This media link is incomplete.";
+        return;
+    }
+
+    const loadDetails = async () => {
+        let media;
+        if (source === "rawg" && type === "game") {
+            const response = await fetch(`${API.rawg}/games/${encodeURIComponent(id)}?key=${RAWG_API_KEY}`);
+            if (!response.ok) throw new Error(`RAWG details failed (${response.status})`);
+            const game = await response.json();
+            media = {
+                id: game.id,
+                source,
+                type,
+                title: game.name,
+                cover: game.background_image || null,
+                releaseDate: game.released || null,
+                creator: game.developers?.map((item) => item.name).join(", ") || null,
+                publisher: game.publishers?.map((item) => item.name).join(", ") || null,
+                description: game.description_raw || null,
+                genres: game.genres?.map((item) => item.name) || [],
+                platforms: game.platforms?.map((item) => item.platform.name) || []
+            };
+        } else if (source === "tmdb" && (type === "movie" || type === "tv")) {
+            const kind = type === "tv" ? "tv" : "movie";
+            const response = await fetch(`${API.tmdb}/${kind}/${encodeURIComponent(id)}?api_key=${TMDB_API_KEY}&append_to_response=credits`);
+            if (!response.ok) throw new Error(`TMDB ${kind} details failed (${response.status})`);
+            const item = await response.json();
+            const director = item.credits?.crew?.find((person) => person.job === "Director")?.name;
+            media = {
+                id: item.id,
+                source,
+                type,
+                title: item.title || item.name,
+                cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+                releaseDate: item.release_date || item.first_air_date || null,
+                creator: director || item.created_by?.map((person) => person.name).join(", ") || null,
+                publisher: null,
+                description: item.overview || null,
+                genres: item.genres?.map((genre) => genre.name) || [],
+                platforms: [],
+                cast: item.credits?.cast?.slice(0, 8).map((person) => person.name) || [],
+                runtime: item.runtime || item.episode_run_time?.[0] || null
+            };
+        } else if (source === "musicbrainz" && type === "music") {
+            const response = await fetch(`${API.musicbrainz}/release-group/${encodeURIComponent(id)}?inc=artists+releases+genres&fmt=json`, {
+                headers: { Accept: "application/json" }
+            });
+            if (!response.ok) throw new Error(`MusicBrainz details failed (${response.status})`);
+            const album = await response.json();
+            media = {
+                id: album.id,
+                source,
+                type,
+                title: album.title,
+                cover: `${API.coverArt}/release-group/${album.id}/front-500`,
+                releaseDate: album["first-release-date"] || null,
+                creator: album["artist-credit"]?.map((artist) => artist.name).join(", ") || null,
+                publisher: null,
+                description: null,
+                genres: album.genres?.map((genre) => genre.name) || [],
+                platforms: [],
+                releases: album.releases?.slice(0, 8).map((release) => release.title) || []
+            };
+        } else {
+            throw new Error("This media source and type are not supported.");
+        }
+
+        heading.textContent = media.title;
+        document.title = `rec. | ${media.title}`;
+        container.replaceChildren();
+        if (media.cover) {
+            const image = document.createElement("img");
+            image.className = "details-artwork";
+            image.src = media.cover;
+            image.alt = `${media.title} artwork`;
+            image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+            container.append(image);
+        }
+        const metadata = document.createElement("dl");
+        const fields = [
+            ["Type", type === "tv" ? "TV" : type],
+            ["Release date", media.releaseDate],
+            ["Artist / developer / director", media.creator],
+            ["Publisher", media.publisher],
+            ["Genres", media.genres?.join(", ")],
+            ["Platforms", media.platforms?.join(", ")],
+            ["Runtime", media.runtime ? `${media.runtime} minutes` : null],
+            ["Cast", media.cast?.join(", ")],
+            ["Releases / editions", media.releases?.join(", ")]
+        ];
+        fields.filter(([, value]) => value).forEach(([label, value]) => {
+            const term = document.createElement("dt");
+            term.textContent = label;
+            const description = document.createElement("dd");
+            description.textContent = value;
+            metadata.append(term, description);
+        });
+        container.append(metadata);
+        if (media.description) {
+            const description = document.createElement("p");
+            description.className = "details-description";
+            description.textContent = media.description;
+            container.append(description);
+        }
+        actions.hidden = false;
+        actions.querySelectorAll("[data-membership]").forEach((button) => {
+            const membership = button.dataset.membership;
+            const saved = readSavedMedia().find((item) => item.source === source && item.type === type && String(item.id) === String(id));
+            button.textContent = saved?.[membership] ? `Already in ${membership === "owned" ? "collection" : "wishlist"}` : `Add to ${membership === "owned" ? "Collection" : "Wishlist"}`;
+            button.disabled = Boolean(saved?.[membership]);
+            button.onclick = () => {
+                try {
+                    saveMediaMembership(media, membership);
+                    button.textContent = `Added to ${membership === "owned" ? "collection" : "wishlist"}`;
+                    button.disabled = true;
+                    status.textContent = `Added ${media.title} to your ${membership === "owned" ? "collection" : "wishlist"}.`;
+                } catch (error) {
+                    console.error("Could not save media:", error);
+                    status.textContent = "Could not save this item in this browser.";
+                }
+            };
+        });
+        status.textContent = "";
+        heading.focus();
+    };
+
+    status.textContent = "Loading media details…";
+    container.setAttribute("aria-busy", "true");
+    loadDetails().catch((error) => {
+        console.error("Could not load media details:", error);
+        status.textContent = "Media details could not be loaded. Check the link or try again later.";
+    }).finally(() => {
+        container.removeAttribute("aria-busy");
+    });
+}
+
+document.querySelector("#media-search-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const query = form.querySelector("[name=query]").value.trim();
+    const category = form.querySelector("[name=category]").value;
+    if (!query) {
+        form.querySelector("[name=query]").focus();
+        return;
+    }
+    const destination = new URL(`search-results.html?${new URLSearchParams({ q: query, category })}`, window.location.href);
+    try {
+        window.sessionStorage.setItem("rec:internal-navigation", `${destination.pathname}${destination.search}`);
+    } catch (error) {
+        console.error("Could not save the search navigation handoff:", error);
+    }
+    window.location.href = destination.href;
+});
+
+renderMediaSearchPage();
+renderMediaDetailsPage();
 
 
 /* media of the day */
@@ -280,6 +570,7 @@ if (featuredCard && featuredCategoryButtons.length) {
     });
 
     const setFeaturedStatus = (category, title, description) => {
+        featuredCard.href = "#";
         featuredCard.setAttribute("aria-disabled", "true");
         featuredCard.setAttribute("aria-label", title);
         featuredCard.dataset.mediaId = "";
@@ -311,7 +602,8 @@ if (featuredCard && featuredCategoryButtons.length) {
         const artClass = category === "games" ? "game-art" : category === "music" ? "music-art" : "film-art";
 
         featuredCard.setAttribute("aria-disabled", "false");
-        featuredCard.setAttribute("aria-label", `View details for ${media.title}; details page coming soon`);
+        featuredCard.href = mediaDetailsUrl(media);
+        featuredCard.setAttribute("aria-label", `View details for ${media.title}`);
         featuredCard.dataset.mediaId = String(media.id);
         featuredCard.dataset.mediaSource = media.source;
         featuredCard.dataset.mediaType = media.type;
@@ -427,7 +719,7 @@ if (featuredCard && featuredCategoryButtons.length) {
     });
 
     featuredCard.addEventListener("click", (event) => {
-        event.preventDefault();
+        if (featuredCard.getAttribute("aria-disabled") === "true") event.preventDefault();
     });
 
     loadFeaturedMedia(selectedCategory);
@@ -448,9 +740,76 @@ if (site) {
 const collectionPage = document.querySelector(".collection-page");
 
 if (collectionPage) {
+    const savedItems = readSavedMedia();
+    const createSavedCard = (media, membership) => {
+        const card = document.createElement("article");
+        card.className = "media-card";
+        card.dataset.status = membership === "owned" ? "owned" : "wishlist";
+        card.dataset.type = media.type;
+        card.dataset.format = media.format || "";
+        card.dataset.genre = media.genres?.[0]?.toLowerCase() || "";
+        card.dataset.releaseDate = media.releaseDate || "";
+        card.dataset.rating = media.rating ?? "";
+        card.dataset.added = media.addedAt || "";
+        card.dataset.source = media.source;
+        card.dataset.mediaId = String(media.id);
+
+        const cover = document.createElement("div");
+        cover.className = "cover-placeholder";
+        if (media.cover) {
+            const image = document.createElement("img");
+            image.src = media.cover;
+            image.alt = "";
+            image.loading = "lazy";
+            image.addEventListener("error", () => {
+                image.remove();
+                cover.textContent = `${media.type.toUpperCase()} / SAVED`;
+            }, { once: true });
+            cover.append(image);
+        } else {
+            cover.textContent = `${media.type.toUpperCase()} / SAVED`;
+        }
+
+        const info = document.createElement("div");
+        info.className = "media-card-info";
+        const title = document.createElement("p");
+        title.textContent = media.title;
+        const subtitle = document.createElement("span");
+        subtitle.textContent = `${media.type.toUpperCase()} / ${media.source.toUpperCase()}`;
+        info.append(title, subtitle);
+
+        const details = document.createElement("div");
+        details.className = "media-card-details";
+        [media.creator, media.releaseDate?.slice(0, 4), media.format].filter(Boolean).forEach((value) => {
+            const detail = document.createElement("span");
+            detail.textContent = value;
+            details.append(detail);
+        });
+        card.append(cover, info, details);
+        return card;
+    };
+    const wishlistGridForSaved = collectionPage.querySelector(".wishlist-grid");
+    const ownedGridForSaved = collectionPage.querySelector(".collection-grid");
+    savedItems.forEach((media) => {
+        if (media.wishlist) wishlistGridForSaved.append(createSavedCard(media, "wishlist"));
+        if (media.owned) ownedGridForSaved.append(createSavedCard(media, "owned"));
+    });
+
     const collectionCards = Array.from(collectionPage.querySelectorAll(".media-card"));
     const ownedCards = Array.from(collectionPage.querySelectorAll(".collection-grid .media-card"));
     const wishlistCards = Array.from(collectionPage.querySelectorAll(".wishlist-grid .media-card"));
+    const statisticNumbers = Array.from(collectionPage.querySelectorAll(".collection-stats .stat-number"));
+    const ownedCounts = [
+        ownedCards.length,
+        ownedCards.filter((card) => card.dataset.type === "game").length,
+        ownedCards.filter((card) => card.dataset.type === "music").length,
+        ownedCards.filter((card) => card.dataset.type === "movie" || card.dataset.type === "tv").length
+    ];
+    statisticNumbers.forEach((number, index) => {
+        if (ownedCounts[index] != null) number.textContent = String(ownedCounts[index]).padStart(2, "0");
+    });
+    const wishlistCount = collectionPage.querySelector(".wishlist-section .section-count");
+    if (wishlistCount) wishlistCount.textContent = `${String(wishlistCards.length).padStart(2, "0")} ITEMS`;
     const searchField = collectionPage.querySelector("#collection-search");
     const filterToggle = collectionPage.querySelector(".filter-toggle");
     const filterPanel = collectionPage.querySelector("#collection-filters");
@@ -497,9 +856,9 @@ if (collectionPage) {
 
             if (sortBy === "title-asc") return firstTitle.localeCompare(secondTitle);
             if (sortBy === "title-desc") return secondTitle.localeCompare(firstTitle);
-            if (sortBy === "release") return first.dataset.releaseDate.localeCompare(second.dataset.releaseDate);
+            if (sortBy === "release") return (first.dataset.releaseDate || "").localeCompare(second.dataset.releaseDate || "");
             if (sortBy === "rating") return Number(second.dataset.rating) - Number(first.dataset.rating);
-            return second.dataset.added.localeCompare(first.dataset.added);
+            return (second.dataset.added || "").localeCompare(first.dataset.added || "");
         });
 
         sortedCards.forEach((card) => collectionGrid.appendChild(card));

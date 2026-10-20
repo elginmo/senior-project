@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rec. | search</title>
+    <link rel="icon" type="image/png" href="media/logo-black.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/landing.css">
+    <link rel="stylesheet" href="https://use.typekit.net/olt6stx.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"
+            }
+        }
+    </script>
+    <script type="module" src="js/landing.js"></script>
+</head>
+<body data-page="search">
+    <section class="landing-screen" id="landing-screen" aria-label="rec. sign in and entrance">
+        <div class="landing-scene" id="landing-scene" aria-hidden="true"></div>
+        <div class="landing-grain" aria-hidden="true"></div>
+        <div class="landing-content">
+            <img class="landing-logo" src="media/logo-clear.png" alt="rec.">
+            <div class="landing-auth" aria-labelledby="landing-auth-heading">
+                <p class="landing-auth-label">ACCOUNT ACCESS / PREVIEW</p>
+                <h1 id="landing-auth-heading">SIGN IN</h1>
+                <label for="landing-email">EMAIL</label>
+                <input id="landing-email" type="email" autocomplete="email" disabled>
+                <label for="landing-password">PASSWORD</label>
+                <input id="landing-password" type="password" autocomplete="current-password" disabled>
+                <button class="sign-in-button" type="button" disabled>SIGN IN</button>
+                <p class="landing-auth-note">Authentication is not connected yet. These controls are a visual preview only.</p>
+            </div>
+            <button class="enter-button" id="enter-button" type="button">VIEW DEMO ARCHIVE</button>
+            <p class="landing-status" id="landing-status" role="status" aria-live="polite"></p>
+        </div>
+    </section>
+    <div class="site" id="site">
+        <header class="navbar">
+            <a href="index.html" class="nav-logo"><img src="media/logo-black.png" alt="rec."></a>
+            <nav class="home-navigation" aria-label="Main navigation">
+                <a href="search.html" aria-label="Search the archive" title="Search the archive" aria-current="page">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3"></circle><path d="m15.5 15.5 4.2 4.2"></path></svg>
+                </a>
+                <a href="collection.html" aria-label="Collection" title="Collection">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 4.5h6.5v6.5H4zM13.5 4.5H20v6.5h-6.5zM4 13h6.5v6.5H4z"></path><path d="M13.5 13h2.2a4.3 4.3 0 0 1 4.3 4.3v2.2h-6.5z"></path></svg>
+                </a>
+                <a href="profile.html" aria-label="Profile" title="Profile">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.4"></circle><path d="M5.2 20a6.8 6.8 0 0 1 13.6 0z"></path></svg>
+                </a>
+            </nav>
+        </header>
+        <main class="media-page">
+            <section class="page">
+                <p class="page-label">CATALOG / SEARCH</p>
+                <h1>SEARCH MEDIA</h1>
+                <form id="media-search-form" class="media-search-form" action="search-results.html" method="get">
+                    <label for="media-category">MEDIA TYPE</label>
+                    <select id="media-category" name="category">
+                        <option value="all">All Media</option>
+                        <option value="music">Music</option>
+                        <option value="games">Video Games</option>
+                        <option value="movies-tv">Movies &amp; TV</option>
+                    </select>
+                    <label for="media-query">SEARCH TERMS</label>
+                    <input id="media-query" name="q" type="search" autocomplete="off" required>
+                    <button type="submit">Search</button>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
