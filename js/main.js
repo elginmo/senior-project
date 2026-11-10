@@ -174,7 +174,7 @@ function saveMediaMembership(media, membership) {
 
 function renderMediaSearchPage() {
     const form = document.querySelector("#media-search-form");
-    const queryInput = form?.querySelector("[name=query]");
+    const queryInput = form?.querySelector("[name=q]");
     const categoryInput = form?.querySelector("[name=category]");
     if (!form || !queryInput || !categoryInput) return;
 
@@ -398,10 +398,10 @@ function renderMediaDetailsPage() {
 document.querySelector("#media-search-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     const form = event.currentTarget;
-    const query = form.querySelector("[name=query]").value.trim();
+    const query = form.querySelector("[name=q]").value.trim();
     const category = form.querySelector("[name=category]").value;
     if (!query) {
-        form.querySelector("[name=query]").focus();
+        form.querySelector("[name=q]").focus();
         return;
     }
     const destination = new URL(`search-results.html?${new URLSearchParams({ q: query, category })}`, window.location.href);

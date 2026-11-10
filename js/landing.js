@@ -43,6 +43,22 @@ function initializeLanding() {
         }
     });
 
+    document.addEventListener("submit", (event) => {
+        if (!(event.target instanceof HTMLFormElement) || event.target.id !== "media-search-form") return;
+        if (event.target.method.toLowerCase() !== "get") return;
+
+        const destination = new URL(event.target.action, window.location.href);
+        destination.search = new URLSearchParams(new FormData(event.target)).toString();
+        try {
+            window.sessionStorage.setItem(
+                navigationHandoffKey,
+                `${destination.pathname}${destination.search}`
+            );
+        } catch (error) {
+            console.error("Could not save the internal-navigation handoff:", error);
+        }
+    }, true);
+
     if (isInternalNavigation) {
         landingScreen.hidden = true;
         return;
