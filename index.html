@@ -88,11 +88,7 @@
 
                 <section class="home-hero">
 
-                    <div class="hero-animation">
-                        <div class="animation-placeholder">
-                            ANIMATION
-                        </div>
-                    </div>
+                    <div class="hero-animation" aria-hidden="true"></div>
 
                     <div class="hero-overlay">
 
@@ -119,29 +115,10 @@
                         <a class="home-section-link" href="collection.html">VIEW COLLECTION <span aria-hidden="true">↗</span></a>
                     </div>
 
-                    <div class="recently-grid">
-                        <article class="home-media-card">
-                            <div class="home-media-art game-art" aria-hidden="true"><span>GAME / 001</span></div>
-                            <div class="home-media-info">
-                                <h3>The Legend of Zelda: Breath of the Wild</h3>
-                                <span>GAME <i>/</i> CARTRIDGE</span>
-                            </div>
-                        </article>
-                        <article class="home-media-card">
-                            <div class="home-media-art game-art" aria-hidden="true"><span>GAME / 002</span></div>
-                            <div class="home-media-info">
-                                <h3>The Legend of Zelda: Tears of the Kingdom</h3>
-                                <span>GAME <i>/</i> DISC</span>
-                            </div>
-                        </article>
-                        <article class="home-media-card">
-                            <div class="home-media-art game-art" aria-hidden="true"><span>GAME / 003</span></div>
-                            <div class="home-media-info">
-                                <h3>Super Mario Party</h3>
-                                <span>GAME <i>/</i> CARTRIDGE</span>
-                            </div>
-                        </article>
-                    </div>
+                    <div class="recently-grid" aria-live="polite"></div>
+                    <p class="home-empty-state" data-recent-empty hidden>
+                        YOUR ARCHIVE IS EMPTY. <a href="search.html">SEARCH FOR MEDIA</a> TO GET STARTED.
+                    </p>
                 </section>
 
                 <section class="home-section media-of-day-section" aria-labelledby="media-of-day-heading">

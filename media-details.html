@@ -53,15 +53,38 @@
             </nav>
         </header>
         <main class="media-page">
-            <section class="page">
-                <p class="page-label">CATALOG / DETAILS</p>
-                <a id="details-back-link" href="search.html">← Back to search</a>
-                <h1 id="details-heading" tabindex="-1">Media details</h1>
+            <section class="page details-page">
+                <div class="details-page-header">
+                    <p class="page-label">CATALOG / MEDIA DETAILS</p>
+                    <a id="details-back-link" href="search.html">← Back to search</a>
+                </div>
                 <p id="details-status" class="search-status" role="status" aria-live="polite">Loading media details…</p>
-                <section id="media-details" class="media-details" aria-busy="true"></section>
-                <div id="media-actions" class="media-actions" hidden>
-                    <button type="button" data-membership="owned">Add to Collection</button>
-                    <button type="button" data-membership="wishlist">Add to Wishlist</button>
+                <div id="media-details" class="media-details" aria-busy="true">
+                    <section class="details-hero" aria-labelledby="details-heading">
+                        <div id="details-artwork-wrap" class="details-artwork-wrap"></div>
+                        <div class="details-identity">
+                            <p id="details-category" class="details-category"></p>
+                            <h1 id="details-heading" tabindex="-1">Media details</h1>
+                            <p id="details-release" class="details-release"></p>
+                            <p id="details-creator" class="details-creator"></p>
+                            <p id="details-publisher" class="details-publisher"></p>
+                            <ul id="details-genres" class="details-tags" aria-label="Genres"></ul>
+                            <div id="media-actions" class="media-actions" hidden>
+                                <button type="button" data-membership="owned">Add to Collection</button>
+                                <button type="button" data-membership="wishlist">Add to Wishlist</button>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="details-about" class="details-section" aria-labelledby="details-about-heading" hidden>
+                        <p class="details-section-label">ABOUT</p>
+                        <h2 id="details-about-heading">About this media</h2>
+                        <p id="details-description" class="details-description"></p>
+                    </section>
+                    <section id="details-catalog" class="details-section" aria-labelledby="details-catalog-heading" hidden>
+                        <p class="details-section-label">CATALOG RECORD</p>
+                        <h2 id="details-catalog-heading">Catalog information</h2>
+                        <dl id="details-catalog-grid" class="details-catalog-grid"></dl>
+                    </section>
                 </div>
             </section>
         </main>

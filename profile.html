@@ -72,13 +72,11 @@
                 <p class="page-label">PROFILE / 001</p>
 
                 <header class="profile-header">
-                    <div class="profile-banner" aria-label="Profile banner placeholder">
-                        <span>banner goes here.</span>
-                    </div>
+                    <div class="profile-banner" aria-label="Profile banner"></div>
 
                     <div class="profile-identity">
-                        <div class="profile-avatar" aria-label="Profile picture placeholder">
-                            <span>n/a</span>
+                        <div class="profile-avatar" aria-label="Profile avatar">
+                            <span>M</span>
                         </div>
                         <div class="profile-identity-main">
                             <div class="profile-name-row">
@@ -109,16 +107,24 @@
 
                 <section class="collection-stats profile-stats" aria-label="Profile statistics">
                     <div class="stat">
-                        <span class="stat-number">25</span>
+                        <span class="stat-number" data-profile-stat="owned">00</span>
                         <span class="stat-label">COLLECTION</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-number">08</span>
-                        <span class="stat-label">WISHLIST</span>
+                        <span class="stat-number" data-profile-stat="game">00</span>
+                        <span class="stat-label">GAMES</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-number">06</span>
-                        <span class="stat-label">FOLDERS</span>
+                        <span class="stat-number" data-profile-stat="music">00</span>
+                        <span class="stat-label">MUSIC</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" data-profile-stat="movies">00</span>
+                        <span class="stat-label">MOVIES / TV</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" data-profile-stat="wishlist">00</span>
+                        <span class="stat-label">WISHLIST</span>
                     </div>
                 </section>
 
@@ -141,23 +147,7 @@
                         </div>
                         <span class="profile-section-count">RECENT LOG</span>
                     </div>
-                    <div class="activity-list">
-                        <article class="activity-item">
-                            <span class="activity-index">01</span>
-                            <p>Added an item to <strong>collection</strong></p>
-                            <time datetime="2026-10-04">1 DAY AGO</time>
-                        </article>
-                        <article class="activity-item">
-                            <span class="activity-index">02</span>
-                            <p>Added an item to <strong>wishlist</strong></p>
-                            <time datetime="2026-10-02">3 DAYS AGO</time>
-                        </article>
-                        <article class="activity-item">
-                            <span class="activity-index">03</span>
-                            <p>Created a new <strong>folder</strong></p>
-                            <time datetime="2026-09-29">6 DAYS AGO</time>
-                        </article>
-                    </div>
+                    <div class="activity-list" aria-live="polite"></div>
                 </section>
             </section>
         </main>

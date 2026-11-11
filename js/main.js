@@ -144,6 +144,8 @@ function mediaDetailsUrl(media, query, category) {
 }
 
 const savedMediaKey = "rec:saved-media:v1";
+const activityKey = "rec:activity:v1";
+const foldersKey = "rec:folders:v1";
 
 function readSavedMedia() {
     try {
@@ -157,10 +159,55 @@ function readSavedMedia() {
     }
 }
 
+function readActivity() {
+    try {
+        const activity = window.localStorage.getItem(activityKey);
+        const entries = activity ? JSON.parse(activity) : [];
+        if (!Array.isArray(entries)) throw new Error("Activity data is not a list");
+        return entries;
+    } catch (error) {
+        console.error("Could not read recent activity:", error);
+        return [];
+    }
+}
+
+function readFolders() {
+    try {
+        const folders = window.localStorage.getItem(foldersKey);
+        const entries = folders ? JSON.parse(folders) : [];
+        if (!Array.isArray(entries)) throw new Error("Folder data is not a list");
+        return entries.filter((folder) => typeof folder === "string");
+    } catch (error) {
+        console.error("Could not read folders:", error);
+        return [];
+    }
+}
+
+function dispatchSavedMediaChange() {
+    window.dispatchEvent(new CustomEvent("rec:saved-media-change"));
+}
+
+function recordActivity(action, membership, media) {
+    const activity = readActivity();
+    activity.unshift({
+        action,
+        membership,
+        title: media.title,
+        type: media.type,
+        at: new Date().toISOString()
+    });
+    try {
+        window.localStorage.setItem(activityKey, JSON.stringify(activity.slice(0, 30)));
+    } catch (error) {
+        console.error("Could not save recent activity:", error);
+    }
+}
+
 function saveMediaMembership(media, membership) {
     const savedItems = readSavedMedia();
     const itemKey = `${media.source}:${media.type}:${media.id}`;
     const existing = savedItems.find((item) => `${item.source}:${item.type}:${item.id}` === itemKey);
+    const isNewMembership = !existing?.[membership];
     if (existing) {
         existing[membership] = true;
         Object.assign(existing, Object.fromEntries(
@@ -170,6 +217,138 @@ function saveMediaMembership(media, membership) {
         savedItems.push({ ...media, addedAt: new Date().toISOString(), [membership]: true });
     }
     window.localStorage.setItem(savedMediaKey, JSON.stringify(savedItems));
+    if (isNewMembership) recordActivity("added", membership, media);
+    dispatchSavedMediaChange();
+}
+
+function removeMediaMembership(source, type, id, membership) {
+    const savedItems = readSavedMedia();
+    const index = savedItems.findIndex((item) => item.source === source
+        && item.type === type && String(item.id) === String(id));
+    if (index < 0 || !savedItems[index][membership]) return;
+
+    const media = savedItems[index];
+    media[membership] = false;
+    if (!media.owned && !media.wishlist) savedItems.splice(index, 1);
+    window.localStorage.setItem(savedMediaKey, JSON.stringify(savedItems));
+    recordActivity("removed", membership, media);
+    dispatchSavedMediaChange();
+}
+
+function renderRecentlyAdded() {
+    const grid = document.querySelector(".recently-grid");
+    const emptyState = document.querySelector("[data-recent-empty]");
+    if (!grid || !emptyState) return;
+
+    const items = readSavedMedia()
+        .filter((media) => media && (media.owned || media.wishlist) && media.title && media.source && media.type && media.id != null)
+        .sort((first, second) => (second.addedAt || "").localeCompare(first.addedAt || ""))
+        .slice(0, 3);
+    grid.replaceChildren();
+    items.forEach((media) => {
+        const link = document.createElement("a");
+        link.className = "home-media-card";
+        link.href = mediaDetailsUrl(media);
+        link.setAttribute("aria-label", `View details for ${media.title}`);
+
+        const artwork = document.createElement("div");
+        artwork.className = "home-media-art";
+        if (media.cover) {
+            const image = document.createElement("img");
+            image.src = media.cover;
+            image.alt = `${media.title} artwork`;
+            image.loading = "lazy";
+            image.addEventListener("error", () => {
+                image.remove();
+                artwork.classList.add("artwork-unavailable");
+            }, { once: true });
+            artwork.append(image);
+        } else {
+            artwork.classList.add("artwork-unavailable");
+        }
+
+        const info = document.createElement("div");
+        info.className = "home-media-info";
+        const title = document.createElement("h3");
+        title.textContent = media.title;
+        const metadata = document.createElement("span");
+        const category = { game: "GAME", music: "MUSIC", movie: "MOVIE", tv: "TELEVISION" }[media.type] || "MEDIA";
+        const year = media.releaseDate ? ` / ${media.releaseDate.slice(0, 4)}` : "";
+        metadata.textContent = `${category}${year}`;
+        info.append(title, metadata);
+        link.append(artwork, info);
+        grid.append(link);
+    });
+    emptyState.hidden = items.length > 0;
+}
+
+function renderProfileData() {
+    const profilePage = document.querySelector(".profile-page");
+    if (!profilePage) return;
+
+    const items = readSavedMedia();
+    const owned = items.filter((item) => item.owned);
+    const wishlist = items.filter((item) => item.wishlist);
+    const counts = {
+        owned: owned.length,
+        game: owned.filter((item) => item.type === "game").length,
+        music: owned.filter((item) => item.type === "music").length,
+        movies: owned.filter((item) => item.type === "movie" || item.type === "tv").length,
+        wishlist: wishlist.length
+    };
+    Object.entries(counts).forEach(([name, count]) => {
+        const number = profilePage.querySelector(`[data-profile-stat="${name}"]`);
+        if (number) number.textContent = String(count).padStart(2, "0");
+    });
+
+    const activityList = profilePage.querySelector(".activity-list");
+    const recordedActivity = readActivity();
+    const activity = (recordedActivity.length ? recordedActivity : items.flatMap((media) => {
+        return ["owned", "wishlist"]
+            .filter((membership) => media[membership])
+            .map((membership) => ({
+                action: "added",
+                membership,
+                title: media.title,
+                type: media.type,
+                at: media.addedAt
+            }));
+    }).sort((first, second) => (second.at || "").localeCompare(first.at || ""))).slice(0, 5);
+    activityList.replaceChildren();
+    if (!activity.length) {
+        const emptyState = document.createElement("p");
+        emptyState.className = "activity-empty-state";
+        emptyState.textContent = "NO RECENT ACTIVITY. ADD MEDIA FROM SEARCH TO START YOUR LOG.";
+        activityList.append(emptyState);
+        return;
+    }
+
+    activity.forEach((entry, index) => {
+        const item = document.createElement("article");
+        item.className = "activity-item";
+        const number = document.createElement("span");
+        number.className = "activity-index";
+        number.textContent = String(index + 1).padStart(2, "0");
+        const description = document.createElement("p");
+        const action = entry.action === "removed" ? "Removed" : "Added";
+        const membership = entry.membership === "wishlist" ? "wishlist" : "collection";
+        description.append(`${action} `);
+        const title = document.createElement("strong");
+        title.textContent = entry.title || "an item";
+        description.append(title, ` ${entry.action === "removed" ? "from" : "to"} ${membership}`);
+        const time = document.createElement("time");
+        const timestamp = Date.parse(entry.at);
+        if (Number.isFinite(timestamp)) {
+            time.dateTime = new Date(timestamp).toISOString();
+            const elapsed = Math.max(0, Date.now() - timestamp);
+            const days = Math.floor(elapsed / 86400000);
+            time.textContent = days === 0 ? "TODAY" : days === 1 ? "1 DAY AGO" : `${days} DAYS AGO`;
+        } else {
+            time.textContent = "";
+        }
+        item.append(number, description, time);
+        activityList.append(item);
+    });
 }
 
 function renderMediaSearchPage() {
@@ -250,6 +429,16 @@ function renderMediaDetailsPage() {
     const heading = document.querySelector("#details-heading");
     const actions = document.querySelector("#media-actions");
     const backLink = document.querySelector("#details-back-link");
+    const artworkWrap = document.querySelector("#details-artwork-wrap");
+    const categoryLabel = document.querySelector("#details-category");
+    const releaseLabel = document.querySelector("#details-release");
+    const creatorLabel = document.querySelector("#details-creator");
+    const publisherLabel = document.querySelector("#details-publisher");
+    const genresList = document.querySelector("#details-genres");
+    const aboutSection = document.querySelector("#details-about");
+    const description = document.querySelector("#details-description");
+    const catalogSection = document.querySelector("#details-catalog");
+    const catalogGrid = document.querySelector("#details-catalog-grid");
     if (backLink && params.has("q")) {
         backLink.href = `search-results.html?${new URLSearchParams({
             q: params.get("q"),
@@ -257,10 +446,33 @@ function renderMediaDetailsPage() {
         })}`;
         backLink.textContent = "← Back to results";
     }
-    if (!source || !type || !id || !status || !heading || !actions) {
+    if (!source || !type || !id || !status || !heading || !actions || !artworkWrap
+        || !categoryLabel || !releaseLabel || !creatorLabel || !publisherLabel || !genresList
+        || !aboutSection || !description || !catalogSection || !catalogGrid) {
         status.textContent = "This media link is incomplete.";
         return;
     }
+
+    const formatDate = (value) => {
+        if (!value) return "";
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return value;
+        return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            timeZone: "UTC"
+        }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))));
+    };
+
+    const appendArtworkFallback = (title) => {
+        const fallback = document.createElement("div");
+        fallback.className = "details-artwork-missing";
+        fallback.setAttribute("role", "img");
+        fallback.setAttribute("aria-label", `${title} artwork unavailable`);
+        fallback.textContent = "ARTWORK UNAVAILABLE";
+        artworkWrap.replaceChildren(fallback);
+    };
 
     const loadDetails = async () => {
         let media;
@@ -295,7 +507,7 @@ function renderMediaDetailsPage() {
                 cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
                 releaseDate: item.release_date || item.first_air_date || null,
                 creator: director || item.created_by?.map((person) => person.name).join(", ") || null,
-                publisher: null,
+                publisher: item.production_companies?.map((company) => company.name).filter(Boolean).join(", ") || null,
                 description: item.overview || null,
                 genres: item.genres?.map((genre) => genre.name) || [],
                 platforms: [],
@@ -320,7 +532,9 @@ function renderMediaDetailsPage() {
                 description: null,
                 genres: album.genres?.map((genre) => genre.name) || [],
                 platforms: [],
-                releases: album.releases?.slice(0, 8).map((release) => release.title) || []
+                releases: [...new Set((album.releases || []).slice(0, 8)
+                    .map((release) => [release.title, release.date, release.country].filter(Boolean).join(" / "))
+                    .filter(Boolean))]
             };
         } else {
             throw new Error("This media source and type are not supported.");
@@ -328,51 +542,102 @@ function renderMediaDetailsPage() {
 
         heading.textContent = media.title;
         document.title = `rec. | ${media.title}`;
-        container.replaceChildren();
+        container.dataset.type = type;
         if (media.cover) {
             const image = document.createElement("img");
             image.className = "details-artwork";
             image.src = media.cover;
             image.alt = `${media.title} artwork`;
-            image.addEventListener("error", () => { image.hidden = true; }, { once: true });
-            container.append(image);
+            image.addEventListener("error", () => appendArtworkFallback(media.title), { once: true });
+            artworkWrap.replaceChildren(image);
+        } else {
+            appendArtworkFallback(media.title);
         }
-        const metadata = document.createElement("dl");
-        const fields = [
-            ["Type", type === "tv" ? "TV" : type],
-            ["Release date", media.releaseDate],
-            ["Artist / developer / director", media.creator],
-            ["Publisher", media.publisher],
-            ["Genres", media.genres?.join(", ")],
-            ["Platforms", media.platforms?.join(", ")],
-            ["Runtime", media.runtime ? `${media.runtime} minutes` : null],
-            ["Cast", media.cast?.join(", ")],
-            ["Releases / editions", media.releases?.join(", ")]
-        ];
+
+        const categoryNames = {
+            game: "VIDEO GAME",
+            music: "ALBUM",
+            movie: "FILM",
+            tv: "TELEVISION"
+        };
+        const creatorNames = {
+            game: "Developer",
+            music: "Artist",
+            movie: "Director",
+            tv: "Creator"
+        };
+        categoryLabel.textContent = categoryNames[type];
+        releaseLabel.textContent = media.releaseDate
+            ? `${type === "music" ? "First released" : type === "tv" ? "First aired" : "Released"} / ${formatDate(media.releaseDate)}`
+            : "";
+        creatorLabel.textContent = media.creator ? `${creatorNames[type]} / ${media.creator}` : "";
+        publisherLabel.textContent = media.publisher
+            ? `${type === "game" ? "Publisher" : "Studio"} / ${media.publisher}`
+            : "";
+
+        genresList.replaceChildren();
+        (media.genres || []).filter(Boolean).forEach((genre) => {
+            const tag = document.createElement("li");
+            tag.textContent = genre;
+            genresList.append(tag);
+        });
+        genresList.hidden = genresList.childElementCount === 0;
+
+        aboutSection.hidden = !media.description;
+        description.textContent = media.description || "";
+
+        const runtimeLabel = type === "tv" ? "Episode runtime" : "Runtime";
+        const runtimeValue = media.runtime
+            ? `${media.runtime} minutes${type === "tv" ? " per episode" : ""}`
+            : null;
+        const fields = type === "game"
+            ? [
+                ["Release date", formatDate(media.releaseDate)],
+                ["Developer", media.creator],
+                ["Publisher", media.publisher],
+                ["Genres", media.genres?.join(", ")],
+                ["Platforms", media.platforms?.join(", ")]
+            ]
+            : type === "music"
+                ? [
+                    ["Artist", media.creator],
+                    ["First release date", formatDate(media.releaseDate)],
+                    ["Genres", media.genres?.join(", ")],
+                    ["Available releases", media.releases?.join(", ")]
+                ]
+                : [
+                    [type === "tv" ? "First air date" : "Release date", formatDate(media.releaseDate)],
+                    [creatorNames[type], media.creator],
+                    [type === "tv" ? runtimeLabel : "Runtime", runtimeValue],
+                    ["Genres", media.genres?.join(", ")],
+                    ["Cast", media.cast?.join(", ")]
+                ];
+        catalogGrid.replaceChildren();
         fields.filter(([, value]) => value).forEach(([label, value]) => {
+            const entry = document.createElement("div");
+            entry.className = "details-catalog-entry";
             const term = document.createElement("dt");
             term.textContent = label;
-            const description = document.createElement("dd");
-            description.textContent = value;
-            metadata.append(term, description);
+            const detail = document.createElement("dd");
+            detail.textContent = value;
+            entry.append(term, detail);
+            catalogGrid.append(entry);
         });
-        container.append(metadata);
-        if (media.description) {
-            const description = document.createElement("p");
-            description.className = "details-description";
-            description.textContent = media.description;
-            container.append(description);
-        }
+        catalogSection.hidden = catalogGrid.childElementCount === 0;
+
         actions.hidden = false;
+        const saved = readSavedMedia().find((item) => item.source === source
+            && item.type === type && String(item.id) === String(id));
         actions.querySelectorAll("[data-membership]").forEach((button) => {
             const membership = button.dataset.membership;
-            const saved = readSavedMedia().find((item) => item.source === source && item.type === type && String(item.id) === String(id));
-            button.textContent = saved?.[membership] ? `Already in ${membership === "owned" ? "collection" : "wishlist"}` : `Add to ${membership === "owned" ? "Collection" : "Wishlist"}`;
-            button.disabled = Boolean(saved?.[membership]);
+            const label = membership === "owned" ? "Collection" : "Wishlist";
+            const isSaved = Boolean(saved?.[membership]);
+            button.textContent = isSaved ? `Already in ${membership === "owned" ? "collection" : "wishlist"}` : `Add to ${label}`;
+            button.disabled = isSaved;
             button.onclick = () => {
                 try {
                     saveMediaMembership(media, membership);
-                    button.textContent = `Added to ${membership === "owned" ? "collection" : "wishlist"}`;
+                    button.textContent = `Already in ${membership === "owned" ? "collection" : "wishlist"}`;
                     button.disabled = true;
                     status.textContent = `Added ${media.title} to your ${membership === "owned" ? "collection" : "wishlist"}.`;
                 } catch (error) {
@@ -740,34 +1005,64 @@ if (site) {
 const collectionPage = document.querySelector(".collection-page");
 
 if (collectionPage) {
-    const savedItems = readSavedMedia();
+    const ownedGrid = collectionPage.querySelector(".collection-grid");
+    const wishlistGrid = collectionPage.querySelector(".wishlist-grid");
+    const searchField = collectionPage.querySelector("#collection-search");
+    const filterToggle = collectionPage.querySelector(".filter-toggle");
+    const filterPanel = collectionPage.querySelector("#collection-filters");
+    const filterFields = Array.from(collectionPage.querySelectorAll("[data-filter]"));
+    const resultCount = collectionPage.querySelector(".results-count");
+    const sortControl = collectionPage.querySelector("#collection-sort");
+    const viewButtons = Array.from(collectionPage.querySelectorAll("[data-view]"));
+    const categoryButtons = Array.from(collectionPage.querySelectorAll("[data-category]"));
+    const allMediaSection = collectionPage.querySelector(".all-media-section");
+    const wishlistSection = collectionPage.querySelector(".wishlist-section");
+    const foldersSection = collectionPage.querySelector(".folders-section");
+    const folderGrid = collectionPage.querySelector(".folder-grid");
+    const viewFoldersButton = collectionPage.querySelector(".view-folders");
+    let ownedCards = [];
+    let wishlistCards = [];
+    let activeCategory = "all";
+
+    const categoryLabels = {
+        game: "GAME",
+        music: "MUSIC",
+        movie: "MOVIE",
+        tv: "TELEVISION"
+    };
+
     const createSavedCard = (media, membership) => {
         const card = document.createElement("article");
         card.className = "media-card";
-        card.dataset.status = membership === "owned" ? "owned" : "wishlist";
+        card.dataset.status = membership;
         card.dataset.type = media.type;
         card.dataset.format = media.format || "";
-        card.dataset.genre = media.genres?.[0]?.toLowerCase() || "";
+        card.dataset.genre = (media.genres || []).join(" ").toLowerCase();
         card.dataset.releaseDate = media.releaseDate || "";
         card.dataset.rating = media.rating ?? "";
         card.dataset.added = media.addedAt || "";
         card.dataset.source = media.source;
         card.dataset.mediaId = String(media.id);
 
+        const link = document.createElement("a");
+        link.className = "media-card-link";
+        link.href = mediaDetailsUrl(media);
+        link.setAttribute("aria-label", `View details for ${media.title}`);
+
         const cover = document.createElement("div");
         cover.className = "cover-placeholder";
         if (media.cover) {
             const image = document.createElement("img");
             image.src = media.cover;
-            image.alt = "";
+            image.alt = `${media.title} artwork`;
             image.loading = "lazy";
             image.addEventListener("error", () => {
                 image.remove();
-                cover.textContent = `${media.type.toUpperCase()} / SAVED`;
+                cover.textContent = "ARTWORK UNAVAILABLE";
             }, { once: true });
             cover.append(image);
         } else {
-            cover.textContent = `${media.type.toUpperCase()} / SAVED`;
+            cover.textContent = "ARTWORK UNAVAILABLE";
         }
 
         const info = document.createElement("div");
@@ -775,120 +1070,209 @@ if (collectionPage) {
         const title = document.createElement("p");
         title.textContent = media.title;
         const subtitle = document.createElement("span");
-        subtitle.textContent = `${media.type.toUpperCase()} / ${media.source.toUpperCase()}`;
+        subtitle.textContent = `${categoryLabels[media.type] || "MEDIA"} / ${media.source.toUpperCase()}`;
         info.append(title, subtitle);
 
         const details = document.createElement("div");
         details.className = "media-card-details";
-        [media.creator, media.releaseDate?.slice(0, 4), media.format].filter(Boolean).forEach((value) => {
+        const metadata = [
+            media.creator,
+            media.releaseDate?.slice(0, 4),
+            Number.isFinite(Number(media.rating)) && media.rating !== null ? `★ ${media.rating}` : null
+        ];
+        metadata.filter(Boolean).forEach((value) => {
             const detail = document.createElement("span");
             detail.textContent = value;
             details.append(detail);
         });
-        card.append(cover, info, details);
-        return card;
-    };
-    const wishlistGridForSaved = collectionPage.querySelector(".wishlist-grid");
-    const ownedGridForSaved = collectionPage.querySelector(".collection-grid");
-    savedItems.forEach((media) => {
-        if (media.wishlist) wishlistGridForSaved.append(createSavedCard(media, "wishlist"));
-        if (media.owned) ownedGridForSaved.append(createSavedCard(media, "owned"));
-    });
+        link.append(cover, info, details);
 
-    const collectionCards = Array.from(collectionPage.querySelectorAll(".media-card"));
-    const ownedCards = Array.from(collectionPage.querySelectorAll(".collection-grid .media-card"));
-    const wishlistCards = Array.from(collectionPage.querySelectorAll(".wishlist-grid .media-card"));
-    const statisticNumbers = Array.from(collectionPage.querySelectorAll(".collection-stats .stat-number"));
-    const ownedCounts = [
-        ownedCards.length,
-        ownedCards.filter((card) => card.dataset.type === "game").length,
-        ownedCards.filter((card) => card.dataset.type === "music").length,
-        ownedCards.filter((card) => card.dataset.type === "movie" || card.dataset.type === "tv").length
-    ];
-    statisticNumbers.forEach((number, index) => {
-        if (ownedCounts[index] != null) number.textContent = String(ownedCounts[index]).padStart(2, "0");
-    });
-    const wishlistCount = collectionPage.querySelector(".wishlist-section .section-count");
-    if (wishlistCount) wishlistCount.textContent = `${String(wishlistCards.length).padStart(2, "0")} ITEMS`;
-    const searchField = collectionPage.querySelector("#collection-search");
-    const filterToggle = collectionPage.querySelector(".filter-toggle");
-    const filterPanel = collectionPage.querySelector("#collection-filters");
-    const filterFields = Array.from(collectionPage.querySelectorAll("[data-filter]"));
-    const resultCount = collectionPage.querySelector(".results-count");
-    const sortControl = collectionPage.querySelector("#collection-sort");
-    const collectionGrid = collectionPage.querySelector(".collection-grid");
-    const viewButtons = Array.from(collectionPage.querySelectorAll("[data-view]"));
-
-    const updateCollection = () => {
-        const query = searchField.value.trim().toLowerCase();
-        const activeFilters = Object.fromEntries(
-            filterFields.map((field) => [field.dataset.filter, field.value])
-        );
-
-        collectionCards.forEach((card) => {
-            const searchableText = [
-                card.querySelector(".media-card-info p")?.textContent,
-                card.dataset.type,
-                card.dataset.format,
-                card.dataset.genre
-            ].join(" ").toLowerCase();
-            const matchesQuery = !query || searchableText.includes(query);
-            const matchesFilters = Object.entries(activeFilters).every(([key, value]) => {
-                return !value || card.dataset[key] === value;
-            });
-
-            card.hidden = !(matchesQuery && matchesFilters);
+        const removeButton = document.createElement("button");
+        removeButton.className = "remove-media";
+        removeButton.type = "button";
+        removeButton.textContent = membership === "owned" ? "REMOVE FROM COLLECTION" : "REMOVE FROM WISHLIST";
+        removeButton.setAttribute("aria-label", `Remove ${media.title} from ${membership === "owned" ? "collection" : "wishlist"}`);
+        removeButton.addEventListener("click", () => {
+            try {
+                removeMediaMembership(media.source, media.type, media.id, membership);
+            } catch (error) {
+                console.error("Could not remove saved media:", error);
+            }
         });
 
-        const visibleOwned = ownedCards.filter((card) => !card.hidden).length;
-        const visibleWishlist = wishlistCards.filter((card) => !card.hidden).length;
-        resultCount.textContent = `${visibleOwned} OWNED / ${visibleWishlist} WISHLIST`;
+        card.append(link, removeButton);
+        return card;
+    };
 
-        collectionPage.querySelector(".all-media-section .empty-results").hidden = visibleOwned > 0;
-        collectionPage.querySelector(".wishlist-section .empty-results").hidden = visibleWishlist > 0;
+    const updateStatistics = (items) => {
+        const owned = items.filter((item) => item.owned);
+        const wishlist = items.filter((item) => item.wishlist);
+        const counts = {
+            owned: owned.length,
+            game: owned.filter((item) => item.type === "game").length,
+            music: owned.filter((item) => item.type === "music").length,
+            movies: owned.filter((item) => item.type === "movie" || item.type === "tv").length,
+            wishlist: wishlist.length
+        };
+        Object.entries(counts).forEach(([name, count]) => {
+            const number = collectionPage.querySelector(`[data-collection-stat="${name}"]`);
+            if (number) number.textContent = String(count).padStart(2, "0");
+        });
+        const countLabel = collectionPage.querySelector(".wishlist-section .section-count");
+        if (countLabel) countLabel.textContent = `${String(counts.wishlist).padStart(2, "0")} ITEMS`;
     };
 
     const sortCollection = () => {
         const sortBy = sortControl.value;
-        const sortedCards = [...ownedCards].sort((first, second) => {
+        const compareCards = (first, second) => {
             const firstTitle = first.querySelector(".media-card-info p").textContent.trim();
             const secondTitle = second.querySelector(".media-card-info p").textContent.trim();
-
             if (sortBy === "title-asc") return firstTitle.localeCompare(secondTitle);
             if (sortBy === "title-desc") return secondTitle.localeCompare(firstTitle);
-            if (sortBy === "release") return (first.dataset.releaseDate || "").localeCompare(second.dataset.releaseDate || "");
-            if (sortBy === "rating") return Number(second.dataset.rating) - Number(first.dataset.rating);
+            if (sortBy === "release") return (second.dataset.releaseDate || "").localeCompare(first.dataset.releaseDate || "");
+            if (sortBy === "rating") return Number(second.dataset.rating || 0) - Number(first.dataset.rating || 0);
             return (second.dataset.added || "").localeCompare(first.dataset.added || "");
+        };
+        [...ownedCards].sort(compareCards).forEach((card) => ownedGrid.append(card));
+        [...wishlistCards].sort(compareCards).forEach((card) => wishlistGrid.append(card));
+    };
+
+    const updateCollection = () => {
+        const query = searchField.value.trim().toLowerCase();
+        const activeFilters = Object.fromEntries(filterFields.map((field) => [field.dataset.filter, field.value]));
+        const allCards = [...ownedCards, ...wishlistCards];
+
+        allCards.forEach((card) => {
+            const searchableText = [
+                card.querySelector(".media-card-info p")?.textContent,
+                card.dataset.type,
+                card.dataset.format,
+                card.dataset.genre,
+                card.querySelector(".media-card-details")?.textContent
+            ].join(" ").toLowerCase();
+            const matchesQuery = !query || searchableText.includes(query);
+            const matchesFilters = Object.entries(activeFilters).every(([key, value]) => {
+                if (!value) return true;
+                if (key === "genre") return card.dataset.genre.split(" ").includes(value);
+                return card.dataset[key] === value;
+            });
+            const matchesCategory = activeCategory === "all"
+                || activeCategory === "wishlist" && card.dataset.status === "wishlist"
+                || activeCategory === "games" && card.dataset.status === "owned" && card.dataset.type === "game"
+                || activeCategory === "music" && card.dataset.status === "owned" && card.dataset.type === "music"
+                || activeCategory === "films" && card.dataset.status === "owned" && (card.dataset.type === "movie" || card.dataset.type === "tv");
+            card.hidden = !(matchesQuery && matchesFilters && matchesCategory);
         });
 
-        sortedCards.forEach((card) => collectionGrid.appendChild(card));
+        const visibleOwned = ownedCards.filter((card) => !card.hidden).length;
+        const visibleWishlist = wishlistCards.filter((card) => !card.hidden).length;
+        resultCount.textContent = `${visibleOwned + visibleWishlist} ITEMS SHOWN / ${ownedCards.length} OWNED / ${wishlistCards.length} WISHLIST`;
+        const ownedEmpty = collectionPage.querySelector('[data-empty="owned"]');
+        const wishlistEmpty = collectionPage.querySelector('[data-empty="wishlist"]');
+        ownedEmpty.hidden = visibleOwned > 0;
+        wishlistEmpty.hidden = visibleWishlist > 0;
+        const categoryTitles = { games: "GAMES", music: "MUSIC", films: "MOVIES / TV" };
+        const categoryItems = activeCategory === "games"
+            ? ownedCards.filter((card) => card.dataset.type === "game")
+            : activeCategory === "music"
+                ? ownedCards.filter((card) => card.dataset.type === "music")
+                : activeCategory === "films"
+                    ? ownedCards.filter((card) => card.dataset.type === "movie" || card.dataset.type === "tv")
+                    : ownedCards;
+        const setEmptyMessage = (element, message) => {
+            const searchLink = document.createElement("a");
+            searchLink.href = "search.html";
+            searchLink.textContent = "SEARCH MEDIA";
+            element.replaceChildren(document.createTextNode(`${message} `), searchLink);
+            element.append(document.createTextNode(" TO GET STARTED."));
+        };
+        if (activeCategory !== "all" && activeCategory !== "wishlist" && activeCategory !== "folders" && !categoryItems.length) {
+            setEmptyMessage(ownedEmpty, `NO ${categoryTitles[activeCategory]} SAVED YET.`);
+        } else if (categoryItems.length && !visibleOwned && categoryTitles[activeCategory]) {
+            setEmptyMessage(ownedEmpty, `NO ${categoryTitles[activeCategory]} ITEMS MATCH THESE FILTERS.`);
+        } else if (ownedCards.length && !visibleOwned) {
+            setEmptyMessage(ownedEmpty, "NO COLLECTION ITEMS MATCH THESE FILTERS.");
+        } else {
+            setEmptyMessage(ownedEmpty, "YOUR COLLECTION IS EMPTY.");
+        }
+        if (wishlistCards.length && !visibleWishlist) {
+            setEmptyMessage(wishlistEmpty, "NO WISHLIST ITEMS MATCH THESE FILTERS.");
+        } else {
+            setEmptyMessage(wishlistEmpty, "YOUR WISHLIST IS EMPTY.");
+        }
+
+        const isWishlist = activeCategory === "wishlist";
+        const isFolders = activeCategory === "folders";
+        allMediaSection.hidden = isWishlist || isFolders;
+        wishlistSection.hidden = isFolders || (activeCategory !== "all" && !isWishlist);
+        foldersSection.hidden = !isFolders && activeCategory !== "all";
+    };
+
+    const renderFolders = () => {
+        const folders = readFolders();
+        folderGrid.replaceChildren();
+        const emptyState = document.createElement("p");
+        emptyState.className = "folder-empty-state";
+        emptyState.textContent = "NO FOLDERS YET. CREATE A FOLDER TO ORGANIZE YOUR MEDIA.";
+        emptyState.hidden = folders.length > 0;
+        folderGrid.append(emptyState);
+        folders.forEach((name, index) => {
+            const folder = document.createElement("div");
+            folder.className = "folder-placeholder";
+            folder.textContent = name.toUpperCase();
+            if (index >= 6) {
+                folder.classList.add("extra-folder");
+                folder.hidden = viewFoldersButton.getAttribute("aria-expanded") !== "true";
+            }
+            folderGrid.append(folder);
+        });
+        const folderCount = folders.length;
+        viewFoldersButton.querySelector("span").textContent = String(folderCount).padStart(2, "0");
+        viewFoldersButton.hidden = folderCount <= 6;
+    };
+
+    const renderCollection = () => {
+        const items = readSavedMedia();
+        ownedGrid.replaceChildren();
+        wishlistGrid.replaceChildren();
+        ownedCards = [];
+        wishlistCards = [];
+        items.filter((item) => item && item.title && item.source && item.type && item.id != null).forEach((media) => {
+            if (media.owned) {
+                const card = createSavedCard(media, "owned");
+                ownedCards.push(card);
+                ownedGrid.append(card);
+            }
+            if (media.wishlist) {
+                const card = createSavedCard(media, "wishlist");
+                wishlistCards.push(card);
+                wishlistGrid.append(card);
+            }
+        });
+        updateStatistics(items);
+        sortCollection();
+        updateCollection();
     };
 
     searchField.addEventListener("input", updateCollection);
     filterFields.forEach((field) => field.addEventListener("change", updateCollection));
-
     filterToggle.addEventListener("click", () => {
         const expanded = filterToggle.getAttribute("aria-expanded") === "true";
         filterToggle.setAttribute("aria-expanded", String(!expanded));
         filterPanel.hidden = expanded;
         filterToggle.querySelector("span").textContent = expanded ? "+" : "−";
     });
-
     collectionPage.querySelector(".clear-filters").addEventListener("click", () => {
         searchField.value = "";
-        filterFields.forEach((field) => {
-            field.value = "";
-        });
+        filterFields.forEach((field) => { field.value = ""; });
         updateCollection();
     });
-
     sortControl.addEventListener("change", sortCollection);
-    sortCollection();
-
     viewButtons.forEach((button) => {
         button.addEventListener("click", () => {
             const listView = button.dataset.view === "list";
-            collectionGrid.classList.toggle("list-view", listView);
+            ownedGrid.classList.toggle("list-view", listView);
+            wishlistGrid.classList.toggle("list-view", listView);
             viewButtons.forEach((viewButton) => {
                 const isActive = viewButton === button;
                 viewButton.classList.toggle("active", isActive);
@@ -896,40 +1280,57 @@ if (collectionPage) {
             });
         });
     });
-
-    const folderGrid = collectionPage.querySelector(".folder-grid");
-    const viewFoldersButton = collectionPage.querySelector(".view-folders");
-
+    categoryButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            activeCategory = button.dataset.category;
+            categoryButtons.forEach((categoryButton) => {
+                const selected = categoryButton === button;
+                categoryButton.classList.toggle("active", selected);
+                categoryButton.setAttribute("aria-pressed", String(selected));
+            });
+            updateCollection();
+            if (activeCategory === "folders") foldersSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    });
     viewFoldersButton.addEventListener("click", () => {
         const expanded = viewFoldersButton.getAttribute("aria-expanded") === "true";
-        folderGrid.querySelectorAll(".extra-folder").forEach((folder) => {
-            folder.hidden = expanded;
-        });
         viewFoldersButton.setAttribute("aria-expanded", String(!expanded));
         viewFoldersButton.firstChild.textContent = expanded ? "VIEW ALL FOLDERS " : "SHOW PINNED FOLDERS ";
+        renderFolders();
     });
-
     collectionPage.querySelector(".new-folder").addEventListener("click", () => {
         const folderName = window.prompt("Name your new folder");
         if (!folderName || !folderName.trim()) return;
-
-        const folder = document.createElement("div");
-        folder.className = "folder-placeholder";
-        folder.textContent = folderName.trim().toUpperCase();
-        folderGrid.appendChild(folder);
-
-        const folderCount = folderGrid.querySelectorAll(".folder-placeholder").length;
-        const foldersExpanded = viewFoldersButton.getAttribute("aria-expanded") === "true";
-        viewFoldersButton.querySelector("span").textContent = String(folderCount).padStart(2, "0");
-        viewFoldersButton.hidden = folderCount <= 6;
-        if (folderCount > 6) {
-            folder.classList.add("extra-folder");
-            folder.hidden = !foldersExpanded;
+        const folders = readFolders();
+        if (folders.some((name) => name.toLowerCase() === folderName.trim().toLowerCase())) return;
+        folders.push(folderName.trim());
+        try {
+            window.localStorage.setItem(foldersKey, JSON.stringify(folders));
+            renderFolders();
+        } catch (error) {
+            console.error("Could not save folder:", error);
         }
     });
 
-    updateCollection();
+    window.addEventListener("rec:saved-media-change", renderCollection);
+    window.addEventListener("storage", (event) => {
+        if (event.key === savedMediaKey) renderCollection();
+        if (event.key === foldersKey) renderFolders();
+    });
+    renderFolders();
+    renderCollection();
 }
+
+const refreshCollectionDependentPages = () => {
+    renderRecentlyAdded();
+    renderProfileData();
+};
+
+refreshCollectionDependentPages();
+window.addEventListener("rec:saved-media-change", refreshCollectionDependentPages);
+window.addEventListener("storage", (event) => {
+    if (event.key === savedMediaKey || event.key === activityKey) refreshCollectionDependentPages();
+});
 
 /* profile settings */
 
@@ -937,20 +1338,6 @@ const badgeGrid = document.querySelector(".badge-grid");
 const homeBadgeGrid = document.querySelector(".home-badge-grid");
 
 if (typeof PROFILE_BADGES !== "undefined" && (badgeGrid || homeBadgeGrid)) {
-    const earnedBadges = PROFILE_BADGES
-        .filter((badge) => badge.unlocked)
-        .map((badge, index) => ({ ...badge, originalIndex: index }))
-        .sort((first, second) => {
-            const firstUnlockTime = Date.parse(first.unlockedAt);
-            const secondUnlockTime = Date.parse(second.unlockedAt);
-            const firstHasUnlockTime = Number.isFinite(firstUnlockTime);
-            const secondHasUnlockTime = Number.isFinite(secondUnlockTime);
-            if (firstHasUnlockTime && secondHasUnlockTime) return secondUnlockTime - firstUnlockTime;
-            if (firstHasUnlockTime) return -1;
-            if (secondHasUnlockTime) return 1;
-            return first.originalIndex - second.originalIndex;
-        });
-
     const renderBadges = (container, badges) => {
         const fragment = document.createDocumentFragment();
         badges.forEach((badge) => {
@@ -968,14 +1355,6 @@ if (typeof PROFILE_BADGES !== "undefined" && (badgeGrid || homeBadgeGrid)) {
             description.textContent = badge.description;
             article.append(icon, heading, description);
 
-            if (Number.isFinite(Date.parse(badge.unlockedAt))) {
-                const unlocked = document.createElement("time");
-                unlocked.className = "badge-unlocked-date";
-                unlocked.dateTime = badge.unlockedAt;
-                unlocked.textContent = new Date(badge.unlockedAt).toLocaleDateString();
-                article.append(unlocked);
-            }
-
             fragment.append(article);
         });
 
@@ -989,15 +1368,22 @@ if (typeof PROFILE_BADGES !== "undefined" && (badgeGrid || homeBadgeGrid)) {
         }
     };
 
-    if (badgeGrid) {
-        renderBadges(badgeGrid, earnedBadges);
-        const badgeCount = document.querySelector("[data-badge-count]");
-        if (badgeCount) badgeCount.textContent = `${String(earnedBadges.length).padStart(2, "0")} UNLOCKED`;
-    }
+    const updateBadges = () => {
+        const savedItems = readSavedMedia();
+        const earnedBadges = PROFILE_BADGES.filter((badge) => badge.unlockedWhen(savedItems));
+        if (badgeGrid) {
+            renderBadges(badgeGrid, earnedBadges);
+            const badgeCount = document.querySelector("[data-badge-count]");
+            if (badgeCount) badgeCount.textContent = `${String(earnedBadges.length).padStart(2, "0")} UNLOCKED`;
+        }
+        if (homeBadgeGrid) renderBadges(homeBadgeGrid, earnedBadges.slice(0, 3));
+    };
 
-    if (homeBadgeGrid) {
-        renderBadges(homeBadgeGrid, earnedBadges.slice(0, 3));
-    }
+    updateBadges();
+    window.addEventListener("rec:saved-media-change", updateBadges);
+    window.addEventListener("storage", (event) => {
+        if (event.key === savedMediaKey) updateBadges();
+    });
 }
 
 const profileSettings = document.querySelector(".profile-settings");
