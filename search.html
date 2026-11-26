@@ -57,16 +57,34 @@
                 <p class="page-label">CATALOG / SEARCH</p>
                 <h1>SEARCH MEDIA</h1>
                 <form id="media-search-form" class="media-search-form" action="search-results.html" method="get">
-                    <label for="media-category">MEDIA TYPE</label>
-                    <select id="media-category" name="category">
+                    <select id="media-category" name="category" class="search-category-select" tabindex="-1" aria-hidden="true">
                         <option value="all">All Media</option>
                         <option value="music">Music</option>
                         <option value="games">Video Games</option>
                         <option value="movies-tv">Movies &amp; TV</option>
                     </select>
-                    <label for="media-query">SEARCH TERMS</label>
-                    <input id="media-query" name="q" type="search" autocomplete="off" required>
-                    <button type="submit">Search</button>
+                    <div class="search-form-layout">
+                        <div class="search-category-tabs" role="tablist" aria-label="Media type">
+                            <button type="button" class="search-category-tab" role="tab" data-category="all" aria-selected="true">All Media</button>
+                            <button type="button" class="search-category-tab" role="tab" data-category="games" aria-selected="false" tabindex="-1">Games</button>
+                            <button type="button" class="search-category-tab" role="tab" data-category="music" aria-selected="false" tabindex="-1">Music</button>
+                            <button type="button" class="search-category-tab" role="tab" data-category="movies-tv" aria-selected="false" tabindex="-1">Movies &amp; TV</button>
+                        </div>
+                        <div class="search-input-row">
+                            <label for="media-query" class="search-field-label">Search the catalog</label>
+                            <div class="search-input-shell">
+                                <svg class="search-input-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <circle cx="10.8" cy="10.8" r="6.3"></circle>
+                                    <path d="m15.5 15.5 4.2 4.2"></path>
+                                </svg>
+                                <input id="media-query" name="q" type="search" autocomplete="off" placeholder="Search titles, artists, games, films, and shows" required>
+                                <button type="button" class="search-clear" aria-label="Clear search" hidden>
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                                <button type="submit" class="search-submit">Search</button>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </section>
         </main>

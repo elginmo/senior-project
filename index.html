@@ -86,23 +86,20 @@
 
                 <!-- Hero -->
 
-                <section class="home-hero">
-
-                    <div class="hero-animation" aria-hidden="true"></div>
-
-                    <div class="hero-overlay">
-
-                        <p class="hero-label">
-                            rec. physical media archive system
-                        </p>
-
-                        <h1>
-                            WELCOME,<br>
-                            USER.
-                        </h1>
-
+                <section class="home-hero media-grid-hero" aria-labelledby="media-grid-heading">
+                    <div class="media-grid-stage" id="media-grid-stage">
+                        <div class="media-grid-columns" id="media-grid-columns"></div>
+                        <div class="media-grid-empty" id="media-grid-empty" hidden>
+                            <img src="media/logo-clear.png" alt="" width="90" height="90">
+                            <p class="media-grid-empty-title" id="media-grid-empty-title">YOUR ARCHIVE IS WAITING.</p>
+                            <p id="media-grid-empty-message">Save something from the catalog to see it here.</p>
+                        </div>
                     </div>
-
+                    <div class="media-grid-welcome">
+                        <p class="hero-label">REC. / PERSONAL MEDIA ARCHIVE</p>
+                        <h1 id="media-grid-heading"> WELCOME BACK, USER.</h1>
+                        <p>Your personal archive of the media you love.</p>
+                    </div>
                 </section>
 
 
@@ -191,6 +188,7 @@
     </div>
 
     <script src="js/main.js"></script>
+    <script type="module" src="js/home-wall.js"></script>
 
 </body>
 </html>

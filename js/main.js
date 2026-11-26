@@ -11,11 +11,57 @@ const API = {
 };
 
 
+/* api helpers */
+
+const MUSICBRAINZ_MIN_INTERVAL_MS = 1100;
+let lastMusicBrainzRequestAt = 0;
+let musicBrainzQueue = Promise.resolve();
+
+function sleep(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url, options = {}, config = {}) {
+    const retries = config.retries ?? 3;
+    const retryStatuses = config.retryStatuses ?? [429, 503];
+    let attempt = 0;
+    let delayMs = 500;
+
+    while (true) {
+        const response = await fetch(url, options);
+        if (!retryStatuses.includes(response.status) || attempt >= retries) {
+            return response;
+        }
+
+        attempt += 1;
+        const retryAfter = Number(response.headers.get("Retry-After"));
+        const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter * 1000, 4000)
+            : delayMs;
+        await sleep(waitMs);
+        delayMs = Math.min(delayMs * 2, 4000);
+    }
+}
+
+function fetchMusicBrainz(url, options = {}) {
+    const run = async () => {
+        const now = Date.now();
+        const waitMs = Math.max(0, lastMusicBrainzRequestAt + MUSICBRAINZ_MIN_INTERVAL_MS - now);
+        if (waitMs) await sleep(waitMs);
+        lastMusicBrainzRequestAt = Date.now();
+        return fetchWithRetry(url, options);
+    };
+    const queued = musicBrainzQueue.then(run, run);
+    musicBrainzQueue = queued.catch(() => {});
+    return queued;
+}
+
+
 /* api functions */
 
 async function searchGames(query) {
     const url = `${API.rawg}/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=10`;
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     if (!response.ok) throw new Error(`RAWG request failed (${response.status})`);
     const data = await response.json();
     return (data.results || []).map((game) => ({
@@ -24,9 +70,9 @@ async function searchGames(query) {
             type: "game",
             cover: game.background_image || null,
             releaseDate: game.released || null,
-            creator: game.developers?.map((developer) => developer.name).join(", ") || null,
-            publisher: game.publishers?.map((publisher) => publisher.name).join(", ") || null,
-            description: game.description_raw || null,
+            creator: null,
+            publisher: null,
+            description: null,
             genres: game.genres?.map((genre) => genre.name) || [],
             platforms: game.platforms?.map((platform) => platform.platform.name) || [],
             rating: game.rating ?? null,
@@ -37,7 +83,7 @@ async function searchGames(query) {
 
 async function searchMovies(query) {
     const url = `${API.tmdb}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`;
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     if (!response.ok) throw new Error(`TMDB movie search failed (${response.status})`);
     const data = await response.json();
     return (data.results || []).map((movie) => ({
@@ -60,7 +106,7 @@ async function searchMovies(query) {
 
 async function searchTelevision(query) {
     const url = `${API.tmdb}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&page=1`;
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     if (!response.ok) throw new Error(`TMDB TV search failed (${response.status})`);
     const data = await response.json();
     return (data.results || []).map((show) => ({
@@ -81,7 +127,7 @@ async function searchTelevision(query) {
 
 async function searchMusic(query) {
     const url = `${API.musicbrainz}/release-group?query=${encodeURIComponent(query)}&fmt=json&limit=10`;
-    const response = await fetch(url, {
+    const response = await fetchMusicBrainz(url, {
         headers: { Accept: "application/json" }
     });
     if (!response.ok) throw new Error(`MusicBrainz request failed (${response.status})`);
@@ -146,6 +192,29 @@ function mediaDetailsUrl(media, query, category) {
 const savedMediaKey = "rec:saved-media:v1";
 const activityKey = "rec:activity:v1";
 const foldersKey = "rec:folders:v1";
+
+let actionToastTimer = null;
+
+function showActionToast(message, state = "success") {
+    let toast = document.querySelector("#action-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "action-toast";
+        toast.className = "action-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        document.body.append(toast);
+    }
+
+    toast.textContent = message;
+    toast.dataset.state = state;
+    toast.hidden = false;
+    if (actionToastTimer) window.clearTimeout(actionToastTimer);
+    actionToastTimer = window.setTimeout(() => {
+        toast.hidden = true;
+        actionToastTimer = null;
+    }, 2800);
+}
 
 function readSavedMedia() {
     try {
@@ -357,65 +426,290 @@ function renderMediaSearchPage() {
     const categoryInput = form?.querySelector("[name=category]");
     if (!form || !queryInput || !categoryInput) return;
 
+    const clearButton = form.querySelector(".search-clear");
+    const categoryTabs = Array.from(form.querySelectorAll(".search-category-tab[data-category]"));
+    const isResultsPage = document.body.dataset.page === "results";
+
+    const syncCategoryTabs = () => {
+        const activeCategory = categoryInput.value || "all";
+        categoryTabs.forEach((tab) => {
+            const isActive = tab.dataset.category === activeCategory;
+            tab.classList.toggle("is-active", isActive);
+            tab.setAttribute("aria-selected", String(isActive));
+            tab.tabIndex = isActive ? 0 : -1;
+        });
+    };
+
+    const syncClearButton = () => {
+        if (clearButton) clearButton.hidden = queryInput.value.length === 0;
+    };
+
+    const setCategory = (category, options = {}) => {
+        const { focusTab = false } = options;
+        if (categoryInput.value === category && !focusTab) {
+            syncCategoryTabs();
+            return;
+        }
+        categoryInput.value = category;
+        syncCategoryTabs();
+        if (focusTab) {
+            const activeTab = categoryTabs.find((tab) => tab.dataset.category === category);
+            activeTab?.focus();
+        }
+    };
+
+    categoryTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+            setCategory(tab.dataset.category || "all");
+            if (isResultsPage) scheduleResultsSearch();
+        });
+        tab.addEventListener("keydown", (event) => {
+            if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const enabledTabs = categoryTabs.filter((item) => !item.disabled);
+            const currentIndex = Math.max(0, enabledTabs.indexOf(tab));
+            let nextIndex = currentIndex;
+            if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % enabledTabs.length;
+            if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+            if (event.key === "Home") nextIndex = 0;
+            if (event.key === "End") nextIndex = enabledTabs.length - 1;
+            const nextTab = enabledTabs[nextIndex];
+            if (nextTab) {
+                setCategory(nextTab.dataset.category || "all", { focusTab: true });
+                if (isResultsPage) scheduleResultsSearch();
+            }
+        });
+    });
+
+    clearButton?.addEventListener("click", () => {
+        queryInput.value = "";
+        syncClearButton();
+        queryInput.focus();
+        if (isResultsPage) scheduleResultsSearch();
+    });
+
+    queryInput.addEventListener("input", () => {
+        syncClearButton();
+        if (isResultsPage) scheduleResultsSearch();
+    });
+
     const params = new URLSearchParams(window.location.search);
     queryInput.value = params.get("q") || "";
     categoryInput.value = params.get("category") || "all";
+    syncCategoryTabs();
+    syncClearButton();
 
-    if (document.body.dataset.page === "search") return;
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const query = queryInput.value.trim();
+        const category = categoryInput.value || "all";
+        queryInput.value = query;
+        syncClearButton();
 
-    const resultsHeading = document.querySelector("#search-results-heading");
-    const resultsContainer = document.querySelector("#search-results");
-    const status = document.querySelector("#search-status");
-    if (!resultsHeading || !resultsContainer || !status) return;
+        if (!query) {
+            queryInput.focus();
+            if (isResultsPage) {
+                const status = document.querySelector("#search-status");
+                const resultsContainer = document.querySelector("#search-results");
+                const resultsHeading = document.querySelector("#search-results-heading");
+                if (status) {
+                    status.dataset.state = "empty";
+                    status.textContent = "Enter a search term to find media.";
+                }
+                if (resultsHeading) resultsHeading.textContent = "Search results";
+                if (resultsContainer) {
+                    resultsContainer.replaceChildren();
+                    resultsContainer.removeAttribute("aria-busy");
+                }
+                const destination = new URL("search-results.html", window.location.href);
+                destination.searchParams.set("category", category);
+                window.history.replaceState({}, "", `${destination.pathname}${destination.search}`);
+            }
+            return;
+        }
 
-    const query = queryInput.value.trim();
-    if (!query) {
-        status.textContent = "Enter a search term to find media.";
-        return;
+        if (!isResultsPage) {
+            const destination = new URL(`search-results.html?${new URLSearchParams({ q: query, category })}`, window.location.href);
+            try {
+                window.sessionStorage.setItem("rec:internal-navigation", `${destination.pathname}${destination.search}`);
+            } catch (error) {
+                console.error("Could not save the search navigation handoff:", error);
+            }
+            window.location.href = destination.href;
+            return;
+        }
+
+        runResultsSearch({ immediate: true });
+    });
+
+    let debounceTimer = null;
+    let latestSearchId = 0;
+
+    function scheduleResultsSearch() {
+        if (!isResultsPage) return;
+        if (debounceTimer) window.clearTimeout(debounceTimer);
+        debounceTimer = window.setTimeout(() => {
+            runResultsSearch({ immediate: false });
+        }, 600);
     }
-    resultsHeading.textContent = `Results for “${query}”`;
-    resultsHeading.focus();
-    status.textContent = "Searching media catalogs…";
-    resultsContainer.setAttribute("aria-busy", "true");
 
-    searchMedia(query, categoryInput.value).then(({ results, errors }) => {
+    function categoryLabel(type) {
+        return { game: "Video Game", music: "Music", movie: "Movie", tv: "Television" }[type] || "Media";
+    }
+
+    function formatSearchDate(value) {
+        if (!value) return "";
+        if (/^\d{4}$/.test(value)) return value;
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return value;
+        return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC"
+        }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))));
+    }
+
+    function setSearchStatus(status, text, state) {
+        if (!status) return;
+        status.textContent = text;
+        status.dataset.state = state || "";
+    }
+
+    function renderResults(resultsContainer, results, query, category) {
         resultsContainer.replaceChildren();
         results.forEach((media) => {
             const link = document.createElement("a");
             link.className = "search-result-card";
-            link.href = mediaDetailsUrl(media, query, categoryInput.value);
-            const image = document.createElement("img");
-            image.className = "search-result-artwork";
-            image.alt = "";
-            image.loading = "lazy";
-            image.src = media.cover || "";
-            image.hidden = !media.cover;
-            image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+            link.href = mediaDetailsUrl(media, query, category);
+            link.setAttribute("aria-label", `Open details for ${media.title}`);
+
+            const artworkWrap = document.createElement("span");
+            artworkWrap.className = "search-result-artwork-wrap";
+            if (media.cover) {
+                const image = document.createElement("img");
+                image.className = "search-result-artwork";
+                image.alt = "";
+                image.loading = "lazy";
+                image.decoding = "async";
+                image.src = media.cover;
+                image.addEventListener("error", () => {
+                    image.remove();
+                    const placeholder = document.createElement("span");
+                    placeholder.className = "search-result-artwork-placeholder";
+                    placeholder.textContent = "NO ARTWORK";
+                    artworkWrap.append(placeholder);
+                }, { once: true });
+                artworkWrap.append(image);
+            } else {
+                const placeholder = document.createElement("span");
+                placeholder.className = "search-result-artwork-placeholder";
+                placeholder.textContent = "NO ARTWORK";
+                artworkWrap.append(placeholder);
+            }
+
             const info = document.createElement("span");
             info.className = "search-result-info";
-            const title = document.createElement("strong");
-            title.textContent = media.title;
-            const type = document.createElement("span");
-            type.textContent = `${media.type.toUpperCase()} · ${media.source.toUpperCase()}${media.releaseDate ? ` · ${media.releaseDate.slice(0, 4)}` : ""}`;
-            info.append(title, type);
-            link.append(image, info);
+
+            const title = document.createElement("h2");
+            title.className = "search-result-title";
+            title.textContent = media.title || "Untitled";
+
+            const creator = document.createElement("p");
+            creator.className = "search-result-meta";
+            creator.textContent = media.creator || "";
+
+            const release = document.createElement("p");
+            release.className = "search-result-meta";
+            release.textContent = media.releaseDate ? `Release: ${formatSearchDate(media.releaseDate)}` : "";
+
+            const categoryBadge = document.createElement("span");
+            categoryBadge.className = "search-result-category";
+            categoryBadge.textContent = categoryLabel(media.type);
+
+            info.append(title);
+            if (creator.textContent) info.append(creator);
+            if (release.textContent) info.append(release);
+            info.append(categoryBadge);
+
+            const openIndicator = document.createElement("span");
+            openIndicator.className = "search-result-open";
+            openIndicator.innerHTML = '<span>Open</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h12"></path><path d="m13 6 6 6-6 6"></path></svg>';
+
+            link.append(artworkWrap, info, openIndicator);
             resultsContainer.append(link);
         });
-        if (errors.length && results.length) {
-            status.textContent = `${results.length} result${results.length === 1 ? "" : "s"} found. Some catalogs could not be reached: ${errors.join(", ")}.`;
-        } else if (errors.length) {
-            status.textContent = `Could not search ${errors.join(", ")}. Please try again.`;
-        } else if (results.length) {
-            status.textContent = `${results.length} result${results.length === 1 ? "" : "s"} found.`;
-        } else {
-            status.textContent = "No results found.";
+    }
+
+    async function runResultsSearch(options = {}) {
+        if (!isResultsPage) return;
+        const { immediate = false } = options;
+        const resultsHeading = document.querySelector("#search-results-heading");
+        const resultsContainer = document.querySelector("#search-results");
+        const status = document.querySelector("#search-status");
+        if (!resultsHeading || !resultsContainer || !status) return;
+
+        if (immediate && debounceTimer) {
+            window.clearTimeout(debounceTimer);
+            debounceTimer = null;
         }
-    }).catch((error) => {
-        console.error("Media search failed:", error);
-        status.textContent = "Search could not be completed. Please try again.";
-    }).finally(() => {
-        resultsContainer.removeAttribute("aria-busy");
-    });
+
+        const query = queryInput.value.trim();
+        const category = categoryInput.value || "all";
+        const destination = new URL("search-results.html", window.location.href);
+        if (query) destination.searchParams.set("q", query);
+        else destination.searchParams.delete("q");
+        destination.searchParams.set("category", category);
+        window.history.replaceState({}, "", `${destination.pathname}${destination.search}`);
+
+        if (!query) {
+            latestSearchId += 1;
+            resultsHeading.textContent = "Search results";
+            resultsContainer.replaceChildren();
+            resultsContainer.removeAttribute("aria-busy");
+            setSearchStatus(status, "Enter a search term to find media.", "empty");
+            return;
+        }
+
+        const searchId = ++latestSearchId;
+        resultsHeading.textContent = `Results for “${query}”`;
+        if (!resultsHeading.hasAttribute("data-focus-ready")) {
+            resultsHeading.setAttribute("data-focus-ready", "true");
+            try { resultsHeading.focus({ preventScroll: true }); } catch (error) { resultsHeading.focus(); }
+        }
+        setSearchStatus(status, "Searching media catalogs…", "loading");
+        resultsContainer.setAttribute("aria-busy", "true");
+
+        try {
+            const { results, errors } = await searchMedia(query, category);
+            if (searchId !== latestSearchId) return;
+
+            renderResults(resultsContainer, results, query, category);
+
+            if (errors.length && results.length) {
+                setSearchStatus(status, `${results.length} result${results.length === 1 ? "" : "s"} found. Some catalogs could not be reached: ${errors.join(", ")}.`, "warning");
+            } else if (errors.length) {
+                setSearchStatus(status, `Could not search ${errors.join(", ")}. Please try again in a moment.`, "error");
+            } else if (results.length) {
+                setSearchStatus(status, `${results.length} result${results.length === 1 ? "" : "s"} found.`, "success");
+            } else {
+                setSearchStatus(status, "No results found. Try different search terms or another media type.", "empty");
+            }
+        } catch (error) {
+            if (searchId !== latestSearchId) return;
+            console.error("Media search failed:", error);
+            resultsContainer.replaceChildren();
+            setSearchStatus(status, "Search could not be completed. Please try again.", "error");
+        } finally {
+            if (searchId === latestSearchId) {
+                resultsContainer.removeAttribute("aria-busy");
+            }
+        }
+    }
+
+    if (isResultsPage) {
+        runResultsSearch({ immediate: true });
+    }
 }
 
 function renderMediaDetailsPage() {
@@ -515,7 +809,7 @@ function renderMediaDetailsPage() {
                 runtime: item.runtime || item.episode_run_time?.[0] || null
             };
         } else if (source === "musicbrainz" && type === "music") {
-            const response = await fetch(`${API.musicbrainz}/release-group/${encodeURIComponent(id)}?inc=artists+releases+genres&fmt=json`, {
+            const response = await fetchMusicBrainz(`${API.musicbrainz}/release-group/${encodeURIComponent(id)}?inc=artists+releases+genres&fmt=json`, {
                 headers: { Accept: "application/json" }
             });
             if (!response.ok) throw new Error(`MusicBrainz details failed (${response.status})`);
@@ -639,10 +933,10 @@ function renderMediaDetailsPage() {
                     saveMediaMembership(media, membership);
                     button.textContent = `Already in ${membership === "owned" ? "collection" : "wishlist"}`;
                     button.disabled = true;
-                    status.textContent = `Added ${media.title} to your ${membership === "owned" ? "collection" : "wishlist"}.`;
+                    showActionToast(`Added ${media.title} to your ${membership === "owned" ? "collection" : "wishlist"}.`);
                 } catch (error) {
                     console.error("Could not save media:", error);
-                    status.textContent = "Could not save this item in this browser.";
+                    showActionToast("Could not save this item in this browser.", "error");
                 }
             };
         });
@@ -659,24 +953,6 @@ function renderMediaDetailsPage() {
         container.removeAttribute("aria-busy");
     });
 }
-
-document.querySelector("#media-search-form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const query = form.querySelector("[name=q]").value.trim();
-    const category = form.querySelector("[name=category]").value;
-    if (!query) {
-        form.querySelector("[name=q]").focus();
-        return;
-    }
-    const destination = new URL(`search-results.html?${new URLSearchParams({ q: query, category })}`, window.location.href);
-    try {
-        window.sessionStorage.setItem("rec:internal-navigation", `${destination.pathname}${destination.search}`);
-    } catch (error) {
-        console.error("Could not save the search navigation handoff:", error);
-    }
-    window.location.href = destination.href;
-});
 
 renderMediaSearchPage();
 renderMediaDetailsPage();
@@ -762,7 +1038,9 @@ if (featuredCard && featuredCategoryButtons.length) {
     };
 
     const requestJson = async (url, label, options = {}) => {
-        const response = await fetch(url, options);
+        const response = label === "MusicBrainz"
+            ? await fetchMusicBrainz(url, options)
+            : await fetchWithRetry(url, options);
         if (!response.ok) throw new Error(`${label} request failed with status ${response.status}`);
         return response.json();
     };
@@ -1095,8 +1373,10 @@ if (collectionPage) {
         removeButton.addEventListener("click", () => {
             try {
                 removeMediaMembership(media.source, media.type, media.id, membership);
+                showActionToast(`Removed ${media.title} from your ${membership === "owned" ? "collection" : "wishlist"}.`);
             } catch (error) {
                 console.error("Could not remove saved media:", error);
+                showActionToast("Could not remove this item in this browser.", "error");
             }
         });
 
